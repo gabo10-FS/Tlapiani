@@ -46,6 +46,8 @@ coverage.xml
 *.log
 
 # Web / Dashboard
+.next/
+*.tsbuildinfo
 node_modules/
 /dist/
 /build/

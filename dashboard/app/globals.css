@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Variables CSS globales ──────────────────────────────────── */
+:root {
+  /* Superficies */
+  --c-bg:        #F1F5F9;
+  --c-surface:   #FFFFFF;
+  --c-panel:     #F8FAFC;
+  --c-row:       #F1F5F9;
+  --c-row-hover: #E2E8F0;
+
+  /* Bordes */
+  --c-border:    #E2E8F0;
+  --c-border-hi: #CBD5E1;
+
+  /* Tipografía */
+  --c-text:      #0F172A;
+  --c-dim:       #64748B;
+  --c-mute:      #CBD5E1;
+
+  /* Acento principal */
+  --c-accent:    #0EA5E9;
+  --c-accent-dim:#BAE6FD;
+
+  /* Semáforo urgencia */
+  --c-critica:   #EF4444;
+  --c-alta:      #F97316;
+  --c-media:     #F59E0B;
+  --c-baja:      #10B981;
+  --c-segura:    #059669;
+
+  /* Estados lote */
+  --c-creado:    #8B5CF6;
+  --c-en-ruta:   #0EA5E9;
+  --c-entregado: #10B981;
+  --c-alerta:    #EF4444;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; background: var(--c-bg); }
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: #BAE6FD; color: #0C4A6E; }
+
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+
+/* ── Leaflet ─────────────────────────────────────────────────── */
+.leaflet-container {
+  background: #e8edf2 !important;
+  font-family: inherit;
+  height: 100% !important;
+}
+.leaflet-popup-content-wrapper {
+  background: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+  border: 1px solid var(--c-border) !important;
+  padding: 0 !important;
+}
+.leaflet-popup-tip { background: white !important; }
+.leaflet-control-zoom a {
+  background: white !important;
+  color: var(--c-text) !important;
+  border-color: var(--c-border) !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+}
+.leaflet-control-zoom { border: 1px solid var(--c-border) !important; border-radius: 10px !important; overflow: hidden; }
+
+/* ── Marcadores mapa ─────────────────────────────────────────── */
+.tlapiani-marker { position: relative; display: flex; align-items: center; justify-content: center; }
+.tlapiani-marker-core  { position: absolute; border-radius: 50%; }
+.tlapiani-marker-ring  { position: absolute; border-radius: 50%; border: 2px solid currentColor; }
+.tlapiani-marker-ring2 { position: absolute; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0; }
+
+/* ── Componentes reutilizables ───────────────────────────────── */
+.impact-card {
+  background: white;
+  border: 1px solid var(--c-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.impact-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.09); transform: translateY(-2px); }
+
+.hash-terminal {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: var(--c-accent);
+  letter-spacing: 0.04em;
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+.estado-line {
+  position: absolute; left: 11px; top: 22px; bottom: 0;
+  width: 2px; background: linear-gradient(to bottom, var(--c-border), transparent);
+}
