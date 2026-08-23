@@ -2,7 +2,7 @@
 
 Este directorio contiene el núcleo lógico, criptográfico y analítico de Tlapiani. Es una API RESTful de alto rendimiento construida con **FastAPI** (Python) y diseñada para ejecutarse de forma nativa en entornos de producción tradicionales (**Bare-Metal**) utilizando **Apache** como proxy inverso y **MariaDB** como motor de persistencia inmutable.
 
-> **Nota sobre requisitos:** el documento formal de requisitos del proyecto pide PostgreSQL (RF-1.4) y contenerización completa en Docker (RNF-3.1). Este backend se queda deliberadamente en **MariaDB + bare-metal** tal como está documentado aquí; es una desviación consciente frente al documento de requisitos, no un descuido.
+> **Decisión de arquitectura — despliegue bare-metal, no Docker (cerrada).** El documento formal de requisitos del proyecto pide PostgreSQL (RF-1.4) y contenerización completa en Docker (RNF-3.1). Este backend usa **MariaDB + bare-metal (systemd + Apache)** en su lugar. No es una desviación pendiente de resolver ni un descuido: es la decisión final de arquitectura del proyecto, tomada explícitamente al iniciar el backend. Toda la sección `## Configuración para Despliegue en Producción` de abajo está escrita asumiendo este despliegue — no hay `Dockerfile` ni `docker-compose.yml` en este repo, y no está previsto agregarlos.
 
 ---
 
@@ -356,7 +356,7 @@ Para cuando se actualizan en bloque los índices de CONAPO/CONEVAL (ej. anualmen
 
 ## Configuración para Despliegue en Producción (Bare-Metal)
 
-Al no permitirse el uso de contenedores (Docker/Podman), la aplicación se ejecutará utilizando herramientas nativas del sistema operativo Linux.
+Sin contenedores (Docker/Podman) — decisión de arquitectura cerrada, ver la nota al inicio de este documento. La aplicación se ejecuta con herramientas nativas del sistema operativo Linux: `systemd` para mantener el proceso de FastAPI corriendo, Apache como proxy inverso hacia él y sirviendo los estáticos del dashboard.
 
 ### 1. Variables de Entorno (`.env`)
 Ver `.env.example` en la raíz del backend (copiar a `.env` y ajustar credenciales):
