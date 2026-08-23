@@ -13,8 +13,11 @@ import hashlib
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import text
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.lote import LoteSecuencia
 
 
 def formatear_timestamp(momento: datetime) -> str:
@@ -37,20 +40,36 @@ def generar_sello(
 async def siguiente_lote_id(db: AsyncSession, anio: int) -> str:
     """Genera TLAP-YYYY-XXXX de forma atómica bajo concurrencia (RNF-2.2).
 
-    INSERT ... ON DUPLICATE KEY UPDATE es una operación atómica a nivel de fila
-    en MariaDB: dos requests simultáneos para el mismo año nunca obtienen el
-    mismo número, sin necesidad de bloqueos explícitos ni reintentos.
+    Upsert + lectura del número resultante en UNA sola sentencia (RETURNING),
+    no en dos (upsert y luego un SELECT aparte). Esto no es solo estilo: un
+    upsert seguido de un SELECT separado deja una ventana entre ambas
+    sentencias — en MariaDB esa ventana está cerrada por el row-lock que el
+    propio INSERT..ON DUPLICATE KEY UPDATE toma de inmediato (ninguna otra
+    transacción puede tocar esa fila hasta el commit), pero esa garantía es
+    del motor de BD, no de este código; sin RETURNING, un test contra un motor
+    con locking distinto (ej. SQLite) puede intercalar otra escritura justo
+    entre el upsert y el SELECT y leer un número que no es el propio. Con
+    RETURNING esa ventana no existe: no hay nada que intercalar.
+
+    MariaDB soporta RETURNING sobre INSERT (incluido con ON DUPLICATE KEY
+    UPDATE) desde 10.5; SQLite desde 3.35 — se usa solo en tests contra una BD
+    en memoria. El branch de MariaDB no se pudo ejecutar en este entorno (no
+    hay servidor MariaDB disponible aquí) — validado por inspección del SQL
+    generado, no por ejecución real; el de SQLite sí se prueba de punta a
+    punta en tests/test_integridad_service.py.
     """
-    await db.execute(
-        text(
-            "INSERT INTO lote_secuencias (anio, ultimo_numero) VALUES (:anio, 1) "
-            "ON DUPLICATE KEY UPDATE ultimo_numero = ultimo_numero + 1"
-        ),
-        {"anio": anio},
-    )
-    resultado = await db.execute(
-        text("SELECT ultimo_numero FROM lote_secuencias WHERE anio = :anio"),
-        {"anio": anio},
-    )
+    dialecto = db.bind.dialect.name
+    if dialecto == "sqlite":
+        stmt = sqlite_insert(LoteSecuencia).values(anio=anio, ultimo_numero=1)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[LoteSecuencia.anio],
+            set_={"ultimo_numero": LoteSecuencia.ultimo_numero + 1},
+        )
+    else:
+        stmt = mysql_insert(LoteSecuencia).values(anio=anio, ultimo_numero=1)
+        stmt = stmt.on_duplicate_key_update(ultimo_numero=LoteSecuencia.ultimo_numero + 1)
+
+    stmt = stmt.returning(LoteSecuencia.ultimo_numero)
+    resultado = await db.execute(stmt)
     numero = resultado.scalar_one()
     return f"TLAP-{anio}-{numero:04d}"
