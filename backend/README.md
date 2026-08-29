@@ -24,6 +24,23 @@ pytest                        # tests unitarios de los servicios (no requieren B
 
 `GET /docs` expone el Swagger UI una vez levantado el servidor.
 
+### Datos de prueba (`seed_demo.py`)
+
+`POST /api/v1/usuarios/registrar` exige un JWT de Administrador — pero para
+sacar ese JWT hace falta un Administrador ya creado (huevo y gallina). Para
+desarrollo local, `seed_demo.py` crea directamente en la BD un primer set de
+usuarios (2 Administrador, 2 Transportista, 1 Donante) y 10 comunidades de
+ejemplo, calculando su `score_urgencia`/`clasificacion` con el motor real
+(`app/services/priorizacion_service.py`), no con valores inventados:
+
+```bash
+python seed_demo.py
+```
+
+**Solo para desarrollo local** — no se ejecuta en producción ni en CI.
+Revisa/edita las contraseñas de ejemplo en el propio archivo antes de correrlo
+contra una base de datos que no sea desechable.
+
 ---
 
 ## Módulos Centrales de Desarrollo

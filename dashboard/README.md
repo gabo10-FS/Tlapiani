@@ -1,6 +1,57 @@
 # Tlapiani - Dashboard Web Administrativo
 
-Este directorio contiene el frontend del **Dashboard Web Administrativo** de Tlapiani, el cual sirve como la interfaz centralizada para la gestión de inventarios, asignación y despacho de lotes de ayuda, visualización del mapa de prioridades y el portal público de transparencia.
+Este directorio contiene el frontend del **Dashboard Web Administrativo** de Tlapiani: interfaz centralizada para la gestión de inventarios, asignación y despacho de lotes de ayuda, visualización del mapa de prioridades y el portal público de transparencia.
+
+Implementado como **SPA en JavaScript puro** (sin framework): router por hash (`#/inventario`, `#/prioridad`, ...), `<dialog>` nativos, Leaflet, QR en `<canvas>` y animaciones GSAP. No depende de Next.js/React ni de un paso de build — es HTML/CSS/JS servido tal cual.
+
+## Cómo ejecutar
+
+Requiere un servidor HTTP (los ES modules y `fetch` no funcionan desde `file://`):
+
+```bash
+cd dashboard
+python3 -m http.server 8099
+# o:  npx serve .   /   start-demo.bat en Windows
+```
+
+Abre http://localhost:8099
+
+> Necesita conexión a internet: GSAP, Leaflet y el generador de QR se cargan desde CDN.
+
+## Acceso demo
+
+- Usuario: **admin** — Contraseña: **tlapiani**
+- El **Portal de Transparencia** es público (no requiere login). Prueba los IDs
+  `TLAP-2026-9981` (en ruta), `TLAP-2026-9974` (recibido OK) y `TLAP-2026-9968`
+  (⚠ alerta de manipulación).
+
+## Estructura
+
+```
+index.html            Shell, sidebar, topbar y <dialog> de login/QR
+css/styles.css         Sistema de diseño (HSL dark/light, glass, print)
+js/
+  app.js              Bootstrap: tema, sesión, login, rutas
+  router.js           Router SPA por hash (#/…) + guards de auth
+  api.js              Fetch + JWT (Bearer) + interceptor 401 + modo demo
+  animations.js       GSAP: contexto por vista, cleanup, ScrollTrigger
+  mock/data.js        Datos simulados de los endpoints
+  views/
+    inventario.js     Formulario (datalist, :user-valid) + tabla filtrable
+    mapa.js           Leaflet + CartoDB Dark + marcadores por urgencia
+    despacho.js       Hash SHA-256 (Web Crypto) + QR canvas + imprimir
+    transparencia.js  Buscador público + línea de tiempo de custodia
+    usuarios.js       Alta y listado de usuarios (RF-2.1, solo Administrador)
+    ui.js             Helpers compartidos
+```
+
+## Conectar un backend real
+
+En `js/api.js` pon `DEMO_MODE = false` y define `API_BASE`. El contrato exacto de
+la API (endpoints, payloads, esquema de base de datos) vive en `../backend/README.md`
+y en `../backend/INTEGRACION.md` (diagnóstico de qué campos hay que ajustar).
+
+---
 
 ## Sistema de Diseño y Estética (Premium Dark Mode)
 
@@ -112,6 +163,10 @@ El dashboard se comportará como una Single Page Application (SPA) simulada, alt
       1. **Creado**: Fecha, hora, centro de acopio de origen y hash original firmado.
       2. **En Ruta**: Fecha, hora de despacho y transportista asignado.
       3. **Recibido**: Estado de la validación criptográfica en la comunidad (Exitoso o Alerta de Manipulación), fecha, hora del escaneo móvil y firma digital del receptor.
+
+### 5. Gestión de Usuarios (RF-2.1, solo Administrador)
+- Alta de usuarios (`nombre_completo`, `email`, `password`, `rol`) y listado. Ver `js/views/usuarios.js`.
+- El backend real solo expone `POST /api/v1/usuarios/registrar` y `GET /api/v1/usuarios` — no hay endpoints de editar, desactivar ni cambiar contraseña todavía (ver `backend/README.md` §6).
 
 ---
 
