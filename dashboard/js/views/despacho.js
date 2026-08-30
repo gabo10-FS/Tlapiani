@@ -122,9 +122,22 @@ export async function mountDespacho(root) {
     btn.disabled = true; btn.textContent = 'Despachando…';
     try {
       const res = await api.despachar(loteId, transportistaId, vehiculo);
-      // Payload que la app móvil escaneará. El hash SHA-256 se firmó al
-      // registrar el lote (generar_sello); el despacho no genera uno nuevo.
-      const payload = JSON.stringify({ id: loteId, hash: res.hash, destino: lote.comunidad, transportista: transportistaLabel, vehiculo, t: res.despachadoEn });
+      // Payload completo que la app móvil escaneará para poder recalcular el hash offline.
+      const payload = JSON.stringify({
+        lote_id: loteId,
+        tipo_bien: lote.tipo || '',
+        cantidad_kg: Number(lote.cantidad) || 0,
+        comunidad_destino_id: Number(lote.comunidadId) || 0,
+        timestamp_creacion: lote.timestamp_creacion || (lote.fecha ? new Date(lote.fecha).toISOString().slice(0, 19) + 'Z' : new Date().toISOString().slice(0, 19) + 'Z'),
+        hash_sha256: res.hash,
+        // Compatibilidad heredada
+        id: loteId,
+        hash: res.hash,
+        destino: lote.comunidad,
+        transportista: transportistaLabel,
+        vehiculo,
+        t: res.despachadoEn
+      });
       renderQR({ lote, res, payload, transportista: transportistaLabel, vehiculo });
     } catch (err) {
       alert(`No se pudo despachar el lote: ${err.message}`);
@@ -169,6 +182,21 @@ export async function mountDespacho(root) {
 function printLabel({ lote, res, transportista, vehiculo }) {
   const w = window.open('', '_blank', 'width=460,height=640');
   if (!w) { alert('Habilita las ventanas emergentes para imprimir la etiqueta.'); return; }
+  
+  // Replicamos el payload de la app móvil para que la etiqueta física contenga la metadata completa offline.
+  const payloadData = {
+    lote_id: lote.id,
+    tipo_bien: lote.tipo || '',
+    cantidad_kg: Number(lote.cantidad) || 0,
+    comunidad_destino_id: Number(lote.comunidadId) || 0,
+    timestamp_creacion: lote.timestamp_creacion || (lote.fecha ? new Date(lote.fecha).toISOString().slice(0, 19) + 'Z' : new Date().toISOString().slice(0, 19) + 'Z'),
+    hash_sha256: res.hash,
+    // Compatibilidad heredada
+    id: lote.id,
+    hash: res.hash
+  };
+  const payloadString = JSON.stringify(payloadData);
+
   // Redibuja el QR grande dentro de la ventana de impresión
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
     <title>Etiqueta ${esc(lote.id)}</title>
@@ -198,7 +226,7 @@ function printLabel({ lote, res, transportista, vehiculo }) {
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"><\/script>
     <script>
       window.onload=function(){
-        var qr=qrcode(0,'M');qr.addData(${JSON.stringify(JSON.stringify({ id: lote.id, hash: res.hash }))});qr.make();
+        var qr=qrcode(0,'M');qr.addData(${JSON.stringify(payloadString)});qr.make();
         var c=document.getElementById('pc'),x=c.getContext('2d'),n=qr.getModuleCount();
         var cell=Math.floor(c.width/(n+2)),off=Math.floor((c.width-cell*n)/2);
         x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#0b1220';

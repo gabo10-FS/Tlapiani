@@ -127,6 +127,7 @@ function adaptLoteRegistrado(res, body, comunidadNombre) {
     origen: body.origen_acopio,
     estado: res.status,
     fecha: String(res.timestamp_creacion).slice(0, 10),
+    timestamp_creacion: res.timestamp_creacion,
     hash: res.hash_sha256,
   };
 }
