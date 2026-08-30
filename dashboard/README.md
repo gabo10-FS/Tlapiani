@@ -48,8 +48,9 @@ js/
 ## Conectar un backend real
 
 En `js/api.js` pon `DEMO_MODE = false` y define `API_BASE`. El contrato exacto de
-la API (endpoints, payloads, esquema de base de datos) vive en `../backend/README.md`
-y en `../backend/INTEGRACION.md` (diagnóstico de qué campos hay que ajustar).
+la API (endpoints, payloads, esquema de base de datos) vive en `../backend/README.md`.
+El bloque de comentario al inicio de `js/api.js` dice, función por función, cuáles
+llaman al backend real y cuáles siguen en `mock/data.js` por falta de endpoint.
 
 ---
 

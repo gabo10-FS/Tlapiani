@@ -18,10 +18,15 @@
 
    El backend NO expone (todavía): listado general de lotes,
    catálogo de comunidades sin auth, centros de acopio, galería,
-   historias ni noticias. Esas funciones se quedan en modo
-   simulado (mock/data.js) aunque DEMO_MODE=false — no se inventa
-   un endpoint que el equipo de back no ha construido. Ver
-   ../backend/INTEGRACION.md.
+   historias ni noticias. `lotes()`/`comunidades()`/`centrosAcopio()`/
+   `tiposBien()` siguen en modo simulado (mock/data.js) aunque
+   DEMO_MODE=false porque son insumos de pantallas que sí funcionan
+   de verdad (Inventario, Despacho) — no se inventa el endpoint que
+   falta, se documenta aquí función por función. `galeria()`,
+   `subirImagen()`, `historias()`, `noticias()` y `centrosGeo()` YA
+   NO se usan desde ninguna vista (esas secciones se ocultaron del
+   dashboard en vez de mostrar contenido inventado) — quedan aquí
+   solo por si se reactivan cuando el backend las soporte.
    ============================================================ */
 
 import {
@@ -110,7 +115,7 @@ function adaptComunidad(c) {
     clasificacion: c.clasificacion,
     lat: Number(c.coordenadas.lat),
     lng: Number(c.coordenadas.lng),
-    poblacion: null, // el backend real no expone población todavía (ver INTEGRACION.md)
+    poblacion: null, // el backend real no expone población todavía
     alerta_activa: c.alerta_activa,
   };
 }

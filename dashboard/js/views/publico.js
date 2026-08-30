@@ -1,8 +1,12 @@
 /* ============================================================
    Vista: Sitio Público (modo visitante)
    Hero con parallax, mapa de recursos con panel tipo "ficha",
-   noticias por prioridad de la IA, historias/casos de éxito,
    misión/visión, objetivos y CTA.
+   Nota: las secciones de Noticias, Historias y la galería/"centros
+   cercanos" del panel de comunidad se quitaron de aquí — dependían
+   de api.noticias()/api.historias()/api.galeria()/api.centrosGeo(),
+   que son mocks sin endpoint real todavía (ver js/api.js). Cuando el
+   backend los soporte, se pueden reactivar.
    ============================================================ */
 
 import { api } from '../api.js';
@@ -45,11 +49,6 @@ export async function mountPublico(root, scrollTo) {
           <div class="card map-card">
             <div class="map-topbar">
               <span class="pill-count" id="pub-map-count">— comunidades</span>
-              <label class="switch" title="Ubica los centros de acopio más cercanos a ti">
-                <span class="switch__label">Centros de acopio cercanos</span>
-                <input type="checkbox" id="pub-cercanos" />
-                <span class="switch__track"><span class="switch__thumb"></span></span>
-              </label>
             </div>
             <div id="pub-map"><div class="map-skeleton">Cargando mapa…</div></div>
           </div>
@@ -57,24 +56,10 @@ export async function mountPublico(root, scrollTo) {
             <div class="cpanel__empty">
               <div class="cpanel__empty-ico">◉</div>
               <h4>Selecciona un punto</h4>
-              <p class="text-muted text-sm">Haz clic en una comunidad del mapa para ver su información, recursos y galería.</p>
+              <p class="text-muted text-sm">Haz clic en una comunidad del mapa para ver su información y recursos.</p>
             </div>
           </aside>
         </div>
-      </section>
-
-      <!-- NOTICIAS -->
-      <section class="pub-section" id="sec-noticias">
-        <span class="pub-eyebrow">Entérate de lo que está pasando</span>
-        <h3>Noticias y alertas · ordenadas por prioridad de la IA</h3>
-        <div class="news-grid" id="news-grid"></div>
-      </section>
-
-      <!-- HISTORIAS -->
-      <section class="pub-section" id="sec-historias">
-        <span class="pub-eyebrow">Historias reales</span>
-        <h3>Casos donde la trazabilidad marcó la diferencia</h3>
-        <div class="hist-grid" id="hist-grid"></div>
       </section>
 
       <!-- MISIÓN / VISIÓN -->
@@ -134,16 +119,7 @@ export async function mountPublico(root, scrollTo) {
   document.getElementById('pub-admin').addEventListener('click', () =>
     document.getElementById('admin-access')?.click());
 
-  // Datos en paralelo
-  const [noticias, historias, comunidades, centros] = await Promise.all([
-    api.noticias(), api.historias(), api.comunidadesPrioridad(), api.centrosGeo(),
-  ]);
-  renderNoticias(noticias);
-  renderHistorias(historias);
-
-  // Galería precargada para thumbnails
-  const galeriaMap = {};
-  await Promise.all(comunidades.map(async c => { galeriaMap[c.id] = await api.galeria(c.id); }));
+  const comunidades = await api.comunidadesPrioridad();
 
   // Animaciones
   runViewAnimations(root, () => {
@@ -166,8 +142,6 @@ export async function mountPublico(root, scrollTo) {
         scrollTrigger: { trigger: '#sec-top', start: 'top top', end: '30% top', scrub: true },
       });
     }
-    revealOnScroll('.news-card');
-    revealOnScroll('.hist-card');
     revealOnScroll('.mv-card');
     revealOnScroll('.obj-card');
     revealOnScroll('.feat-card');
@@ -177,20 +151,9 @@ export async function mountPublico(root, scrollTo) {
   // Mapa público
   document.getElementById('pub-map-count').textContent = `${comunidades.length} comunidades`;
   try {
-    const { addCentrosCercanos, clearCentros } = await buildPriorityMap(document.getElementById('pub-map'), comunidades, {
-      galeria: galeriaMap, scrollWheelZoom: false,
+    await buildPriorityMap(document.getElementById('pub-map'), comunidades, {
+      scrollWheelZoom: false,
       onSelect: (c) => renderCommunityPanel(c),
-    });
-    document.getElementById('pub-cercanos').addEventListener('change', (e) => {
-      const side = document.getElementById('pub-map-side');
-      if (!e.target.checked) { clearCentros(); return; }
-      side.innerHTML = `<div class="cpanel__empty"><div class="cpanel__empty-ico">📍</div><h4>Buscando tu ubicación…</h4><p class="text-muted text-sm">Autoriza el acceso a tu ubicación en el navegador.</p></div>`;
-      addCentrosCercanos(centros, (res) => {
-        if (res.error) { side.innerHTML = `<div class="cpanel__empty"><h4>Centros cercanos</h4><p class="text-muted text-sm">${esc(res.error)}</p></div>`; return; }
-        side.innerHTML = `<h4 class="cpanel__title">Centros de acopio más cercanos</h4>
-          <div class="near-list">${res.centros.map(ce => `<div class="near-item"><span>${esc(ce.nombre)}</span><span class="badge badge--blue">${ce.dist.toFixed(0)} km</span></div>`).join('')}</div>`;
-        enterStagger('#pub-map-side .near-item', { stagger: 0.05 });
-      });
     });
     refreshScroll();
   } catch (err) {
@@ -225,19 +188,14 @@ export async function mountPublico(root, scrollTo) {
     </div>`;
   }
 
-  function renderCommunityPanel(c, expanded = false) {
+  function renderCommunityPanel(c) {
     const side = document.getElementById('pub-map-side');
-    const fotos = galeriaMap[c.id] || [];
-    const shown = expanded ? fotos : fotos.slice(0, 4);
     const sev = c.score >= 80 ? { cls: 'crimson', lbl: 'Crítica' } : c.score >= 50 ? { cls: 'amber', lbl: 'Alta' } : { cls: 'emerald', lbl: 'Segura' };
-    const thumbs = shown.length
-      ? shown.map(f => `<figure class="gal-item"><img src="${esc(f.url)}" alt="${esc(f.caption)}" loading="lazy"><figcaption>${esc(f.caption)}</figcaption></figure>`).join('')
-      : Array.from({ length: 4 }, () => `<div class="gal-item gal-item--empty">▦</div>`).join('');
     side.innerHTML = `
       <div class="cpanel__head">
         <div class="cpanel__title-wrap">
           <h4 class="cpanel__name">${esc(c.nombre)}</h4>
-          <span class="text-muted text-sm">${esc(c.estado)} · ${c.poblacion.toLocaleString('es-MX')} hab.</span>
+          <span class="text-muted text-sm">${esc(c.estado)}${c.poblacion != null ? ` · ${c.poblacion.toLocaleString('es-MX')} hab.` : ''}</span>
         </div>
         <span class="badge badge--${sev.cls}">${sev.lbl}</span>
       </div>
@@ -246,19 +204,10 @@ export async function mountPublico(root, scrollTo) {
         <h5>Recursos clave disponibles</h5>
         ${resourceIcons()}
       </div>
-      <div class="cpanel__block">
-        <div class="cpanel__block-head">
-          <h5>Galería de la comunidad</h5>
-          ${fotos.length ? `<span class="text-muted text-xs">${fotos.length} fotos</span>` : ''}
-        </div>
-        <div class="gal-grid">${thumbs}</div>
-        ${(!expanded && fotos.length > 4) ? `<button class="btn btn--ghost btn--sm btn--block" id="gal-more" style="margin-top:10px">Cargar más</button>` : ''}
-      </div>
       <div class="cpanel__links">
         <button class="cpanel__link" id="cp-contacto"><span class="cpanel__link-ico">◍</span> Contactar líder comunitario</button>
         <button class="cpanel__link cpanel__link--donar" id="cp-donar"><span class="cpanel__link-ico">♡</span> Donar a esta comunidad</button>
       </div>`;
-    document.getElementById('gal-more')?.addEventListener('click', () => renderCommunityPanel(c, true));
     document.getElementById('cp-contacto').addEventListener('click', () => {
       openDialog(`<div class="dialog__header"><span class="brand-mark">◍</span><div><h2>Contactar líder</h2><p class="text-muted">${esc(c.nombre)}</p></div></div>
         <p class="text-muted text-sm">En la versión completa aquí verías el contacto del comité comunitario para coordinar entregas y verificaciones.</p>
@@ -272,35 +221,6 @@ export async function mountPublico(root, scrollTo) {
       document.querySelector('#app-dialog [data-close]').addEventListener('click', closeDialog);
     });
     enterStagger('#pub-map-side .gauge, #pub-map-side .cpanel__block, #pub-map-side .cpanel__links', { stagger: 0.06 });
-  }
-
-  function renderNoticias(items) {
-    document.getElementById('news-grid').innerHTML = items.map(n => `
-      <article class="news-card card">
-        <div class="news-img" style="background-image:url('${esc(n.img)}')">
-          <span class="badge badge--${n.nivel === 'crítica' ? 'crimson' : n.nivel === 'alta' ? 'amber' : 'blue'}">${esc(n.tipo)} · ${esc(n.nivel)}</span>
-        </div>
-        <div class="news-body">
-          <div class="news-meta"><span>${esc(n.zona)}</span><span>${esc(n.fecha)}</span></div>
-          <h4>${esc(n.titulo)}</h4>
-          <p>${esc(n.resumen)}</p>
-          <div class="news-prio"><span class="prio-bar"><span style="width:${n.prioridad}%"></span></span>Prioridad IA ${n.prioridad}</div>
-        </div>
-      </article>`).join('');
-  }
-
-  function renderHistorias(items) {
-    document.getElementById('hist-grid').innerHTML = items.map(h => `
-      <article class="hist-card card">
-        <div class="hist-img" style="background-image:url('${esc(h.img)}')"></div>
-        <div class="hist-body">
-          <span class="badge badge--emerald">${esc(h.impacto)}</span>
-          <h4>${esc(h.titulo)}</h4>
-          <p class="text-muted text-sm">${esc(h.comunidad)}</p>
-          <p>${esc(h.resumen)}</p>
-          <blockquote class="hist-quote">${esc(h.cita)}<cite>— ${esc(h.autor)}</cite></blockquote>
-        </div>
-      </article>`).join('');
   }
 
   // Scroll a sección indicada por la nav pública

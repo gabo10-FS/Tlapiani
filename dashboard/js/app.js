@@ -13,7 +13,6 @@ import { mountPublico } from './views/publico.js';
 import { mountInventario } from './views/inventario.js';
 import { mountMapa } from './views/mapa.js';
 import { mountDespacho } from './views/despacho.js';
-import { mountGaleria } from './views/galeria.js';
 import { mountTransparencia } from './views/transparencia.js';
 import { mountUsuarios } from './views/usuarios.js';
 
@@ -29,7 +28,6 @@ const META = {
   '/inventario':    { title: 'Inventario', sub: 'Registro y control de bienes donados.' },
   '/prioridad':     { title: 'Mapa de Prioridad', sub: 'Comunidades vulnerables por score de urgencia.' },
   '/despacho':      { title: 'Despacho & QR', sub: 'Asignación de rutas y etiquetas de trazabilidad.' },
-  '/galeria':       { title: 'Galería', sub: 'Sube imágenes de lo que sucede en cada comunidad.' },
   '/transparencia': { title: 'Portal de Transparencia', sub: 'Consulta pública de la cadena de custodia.' },
   '/usuarios':      { title: 'Gestión de Usuarios', sub: 'Alta y listado de usuarios (solo Administrador).' },
 };
@@ -161,7 +159,6 @@ function registerRoutes() {
   router.register('/inventario', () => mountInventario(viewRoot), { requiresAuth: true });
   router.register('/prioridad',  () => mountMapa(viewRoot),      { requiresAuth: true });
   router.register('/despacho',   () => mountDespacho(viewRoot),  { requiresAuth: true });
-  router.register('/galeria',    () => mountGaleria(viewRoot),   { requiresAuth: true });
   router.register('/transparencia', ({ param }) => mountTransparencia(viewRoot, param)); // público
   router.register('/usuarios',   () => mountUsuarios(viewRoot),  { requiresAuth: true });
 

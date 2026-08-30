@@ -1,14 +1,15 @@
 /* ============================================================
    Vista admin: Mapa de Prioridad (Leaflet)
    - Tiles según tema (claro/oscuro) vía mapCommon.
-   - Al hacer clic en un marcador: la barra lateral muestra la
-     galería de recursos de esa comunidad.
-   - Botón de centros de acopio cercanos (geolocalización).
    - Popup con botón "Asignar lote".
+   Nota: el botón de "centros de acopio cercanos" y la galería por
+   comunidad se quitaron de aquí — dependían de api.centrosGeo()/
+   api.galeria(), que son mocks sin endpoint real todavía (ver
+   js/api.js). Cuando el backend los soporte, se pueden reactivar.
    ============================================================ */
 
 import { api } from '../api.js';
-import { esc, scoreBadge, openDialog, closeDialog, skeleton } from './ui.js';
+import { esc, scoreBadge, openDialog, closeDialog } from './ui.js';
 import { buildPriorityMap, colorFor } from '../mapCommon.js';
 import { runViewAnimations, enterPanel, enterStagger, refreshScroll } from '../animations.js';
 
@@ -18,10 +19,7 @@ export async function mountMapa(root) {
       <section class="card" style="padding:16px" id="map-card">
         <div class="section-head">
           <h3>Comunidades vulnerables</h3>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn--ghost btn--sm" id="btn-cercanos">📍 Centros cercanos</button>
-            <span class="badge badge--blue" id="map-count">—</span>
-          </div>
+          <span class="badge badge--blue" id="map-count">—</span>
         </div>
         <div id="map"><div class="map-skeleton">Cargando mapa…</div></div>
       </section>
@@ -41,7 +39,7 @@ export async function mountMapa(root) {
       </aside>
     </div>`;
 
-  const [comunidades, centros] = await Promise.all([api.comunidadesPrioridad(), api.centrosGeo()]);
+  const comunidades = await api.comunidadesPrioridad();
   document.getElementById('map-count').textContent = `${comunidades.length} comunidades`;
 
   renderTopList(comunidades);
@@ -52,25 +50,10 @@ export async function mountMapa(root) {
     enterStagger('#top-list .legend-row', { delay: 0.25, stagger: 0.05 });
   });
 
-  // Galería precargada para thumbnails de popups
-  const galeriaMap = {};
-  await Promise.all(comunidades.map(async c => { galeriaMap[c.id] = await api.galeria(c.id); }));
-
   try {
-    const { addCentrosCercanos } = await buildPriorityMap(document.getElementById('map'), comunidades, {
-      galeria: galeriaMap,
+    await buildPriorityMap(document.getElementById('map'), comunidades, {
       popupButton: 'Asignar lote aquí →',
-      onSelect: (c) => renderGaleria(c),
       onButton: (c) => asignarLote(c),
-    });
-
-    document.getElementById('btn-cercanos').addEventListener('click', () => {
-      const badge = document.getElementById('map-count');
-      badge.textContent = 'Localizando…';
-      addCentrosCercanos(centros, (res) => {
-        badge.textContent = `${comunidades.length} comunidades`;
-        if (res.error) { alert(res.error); return; }
-      });
     });
     refreshScroll();
   } catch (err) {
@@ -85,30 +68,6 @@ export async function mountMapa(root) {
       return `<div class="legend-row" style="justify-content:space-between">
         <span>${esc(c.nombre)}</span><span class="badge badge--${b.cls}">${c.score}</span></div>`;
     }).join('');
-  }
-
-  async function renderGaleria(c) {
-    const panel = document.getElementById('side-panel');
-    panel.innerHTML = `<div class="section-head" style="margin-bottom:8px">
-        <h4 style="font-size:14px">Galería · ${esc(c.nombre)}</h4>
-        <button class="btn btn--ghost btn--sm" id="back-top">↑ Prioridad</button></div>
-      <div id="gal-body">${skeleton(2)}</div>`;
-    document.getElementById('back-top').addEventListener('click', () => {
-      panel.innerHTML = `<h4 style="font-size:14px;margin-bottom:10px">Prioridad más alta</h4><div id="top-list" class="legend-list"></div>`;
-      renderTopList(comunidades);
-    });
-    const fotos = await api.galeria(c.id);
-    const body = document.getElementById('gal-body');
-    if (!fotos.length) {
-      body.innerHTML = `<p class="text-muted text-sm">Aún no hay imágenes de esta comunidad. Súbelas desde <a href="#/galeria">Galería</a>.</p>`;
-      return;
-    }
-    body.innerHTML = fotos.map(f => `
-      <figure class="gal-item">
-        <img src="${esc(f.url)}" alt="${esc(f.caption)}" loading="lazy">
-        <figcaption>${esc(f.caption)}<span>${esc(f.fecha || '')}</span></figcaption>
-      </figure>`).join('');
-    enterStagger('#gal-body .gal-item', { stagger: 0.06 });
   }
 
   function asignarLote(c) {

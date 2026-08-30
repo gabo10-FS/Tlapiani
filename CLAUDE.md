@@ -45,7 +45,7 @@ python3 -m http.server 8099   # or: npx serve .  /  start-demo.bat on Windows / 
 
 Open http://localhost:8099. There is no automated test runner for this frontend.
 
-To point it at the real backend instead of its built-in mocks, `js/api.js` already has `API_BASE = 'http://127.0.0.1:8000'` and `DEMO_MODE = false` — see the block comment at the top of that file for exactly which endpoints are real vs. still mocked (the backend doesn't expose a few things the dashboard's UI has slots for, e.g. listing all lotes, galería, historias/noticias — see `backend/INTEGRACION.md`). Run the backend first (below), then this. **CORS**: the backend's `CORS_ORIGINS` must include `http://localhost:8099` (and `http://127.0.0.1:8099`) or the browser will block every request — both `.env` and `.env.example` already list them alongside the old `:3000` origin.
+To point it at the real backend instead of its built-in mocks, `js/api.js` already has `API_BASE = 'http://127.0.0.1:8000'` and `DEMO_MODE = false` — see the block comment at the top of that file for exactly which endpoints are real vs. still mocked. The backend doesn't expose listing all lotes, galería, historias, or noticias — `api.lotes()` works around the first with an in-session cache, but the galería/historias/noticias UI (admin "Galería" tab, public site's Noticias/Historias sections, the map's "centros cercanos" widget) was removed from the dashboard entirely rather than shipped showing fabricated content; re-add it once the corresponding endpoint exists. Run the backend first (below), then this. **CORS**: the backend's `CORS_ORIGINS` must include `http://localhost:8099` (and `http://127.0.0.1:8099`) or the browser will block every request — both `.env` and `.env.example` already list them alongside the old `:3000` origin.
 
 ## Architecture (backend)
 
@@ -65,7 +65,7 @@ Standard layered FastAPI layout: `app/models` (SQLAlchemy ORM) → `app/schemas`
 
 Hash router (`js/router.js`, `#/inventario`, `#/prioridad`, ...) drives view mounting; each `js/views/<name>.js` exports a `mount<Name>(root)` that renders into `#view-root` and registers its own GSAP context (see below). `js/app.js` is the bootstrap: theme, session, login dialog, route registration. `js/api.js` is the only module that talks to the backend — views never call `fetch` directly. Design system lives in `css/styles.css` (HSL tokens, dark-mode-first glassmorphism — documented in `dashboard/README.md`).
 
-Views: `inventario`, `mapa` (Leaflet, prioridad), `despacho` (QR + hash), `transparencia` (público, no auth), `usuarios` (RF-2.1, solo Administrador), plus `bienvenida`/`publico`/`galeria` which stay purely on mock data — the backend has no endpoints for those yet (public comunidad listing, galería, historias, noticias).
+Views: `inventario`, `mapa` (Leaflet, prioridad), `despacho` (QR + hash), `transparencia` (público, no auth), `usuarios` (RF-2.1, solo Administrador), plus `bienvenida`/`publico` for the landing/public site. `js/views/galeria.js` still exists but is **not registered as a route** — it was the admin's image-upload screen, entirely mock (in-memory only, `api.subirImagen`/`api.galeria`), so it was disconnected rather than left reachable showing fake photos. Re-register it in `app.js` once the backend has a real gallery endpoint.
 
 ### `js/api.js` — real backend for what exists, honest mocks for what doesn't
 
@@ -73,7 +73,7 @@ Views: `inventario`, `mapa` (Leaflet, prioridad), `despacho` (QR + hash), `trans
 
 ### Auth
 
-Real JWT from `POST /api/v1/auth/login` (email + password, not username). The backend's `TokenResponse` only returns `access_token` and `rol` — no `nombre_completo` — so the session object the frontend keeps is `{ email, rol }`; UI falls back to showing the email where a display name would go. Demo credentials from `backend/seed_demo.py`: `rubenguzman647@gmail.com` / `admin123` (Administrador).
+Real JWT from `POST /api/v1/auth/login` (email + password, not username). The backend's `TokenResponse` only returns `access_token` and `rol` — no `nombre_completo` — so the session object the frontend keeps is `{ email, rol }`; UI falls back to showing the email where a display name would go. The login form no longer pre-fills any credentials. Bootstrap the first real Administrador with `backend/bootstrap_admin.py` (see `backend/README.md`) — it prompts for the password rather than hardcoding one; there is no more `seed_demo.py`/`admin123`. Everyone after that first admin gets created for real through the "Usuarios" screen.
 
 ### GSAP pattern
 

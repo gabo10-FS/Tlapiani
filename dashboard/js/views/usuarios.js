@@ -4,8 +4,8 @@
        POST /api/v1/usuarios/registrar   (crear)
        GET  /api/v1/usuarios             (listar)
      No hay editar, desactivar ni cambiar contraseña todavía
-     (ver backend/README.md §6 / INTEGRACION.md) — a propósito
-     esta vista NO inventa esas operaciones.
+     (ver backend/README.md §6) — a propósito esta vista NO
+     inventa esas operaciones.
    ============================================================ */
 
 import { api, auth } from '../api.js';

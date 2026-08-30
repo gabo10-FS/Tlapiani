@@ -24,22 +24,27 @@ pytest                        # tests unitarios de los servicios (no requieren B
 
 `GET /docs` expone el Swagger UI una vez levantado el servidor.
 
-### Datos de prueba (`seed_demo.py`)
+### Arranque inicial (`bootstrap_admin.py`)
 
 `POST /api/v1/usuarios/registrar` exige un JWT de Administrador — pero para
-sacar ese JWT hace falta un Administrador ya creado (huevo y gallina). Para
-desarrollo local, `seed_demo.py` crea directamente en la BD un primer set de
-usuarios (2 Administrador, 2 Transportista, 1 Donante) y 10 comunidades de
-ejemplo, calculando su `score_urgencia`/`clasificacion` con el motor real
-(`app/services/priorizacion_service.py`), no con valores inventados:
+sacar ese JWT hace falta un Administrador ya creado (huevo y gallina).
+`bootstrap_admin.py` rompe ese ciclo creando **un solo** Administrador real
+(la contraseña se pide de forma oculta o se pasa por `ADMIN_PASSWORD`, nunca
+se escribe en el archivo) y, si la tabla está vacía, 10 comunidades de
+ejemplo con su `score_urgencia`/`clasificacion` calculado por el motor real
+(`app/services/priorizacion_service.py`) — marcadas con el prefijo
+`[EJEMPLO]` en el nombre para no confundirlas con datos reales:
 
 ```bash
-python seed_demo.py
+python bootstrap_admin.py
 ```
 
-**Solo para desarrollo local** — no se ejecuta en producción ni en CI.
-Revisa/edita las contraseñas de ejemplo en el propio archivo antes de correrlo
-contra una base de datos que no sea desechable.
+Es idempotente (no duplica si ya existe el usuario o hay comunidades). Una
+vez dentro como ese Administrador, da de alta Transportistas/Donantes reales
+desde la pantalla "Usuarios" del dashboard — no hace falta tocar la base de
+datos a mano para eso. Reemplaza a un `seed_demo.py` anterior que sembraba
+usuarios con contraseñas de ejemplo (`admin123`) directamente en el código;
+ya no existe.
 
 ---
 
