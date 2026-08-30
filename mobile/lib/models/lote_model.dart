@@ -17,13 +17,24 @@ class Lote {
 
   /// Crea una instancia de Lote a partir de un mapa JSON.
   factory Lote.fromJson(Map<String, dynamic> json) {
+    // Si 'destino' o 'comunidad_destino_id' viene como String, intentamos parsearlo o caemos a un valor por defecto.
+    final destinoRaw = json['comunidad_destino_id'] ?? json['comunidad_id'] ?? json['destino'];
+    int destinoId = 0;
+    if (destinoRaw is int) {
+      destinoId = destinoRaw;
+    } else if (destinoRaw is String) {
+      destinoId = int.tryParse(destinoRaw) ?? 0;
+    }
+
     return Lote(
-      loteId: json['lote_id'] ?? '',
-      tipoBien: json['tipo_bien'] ?? '',
-      cantidadKg: (json['cantidad_kg'] as num?)?.toDouble() ?? 0.0,
-      comunidadDestinoId: json['comunidad_destino_id'] ?? 0,
-      timestampCreacion: json['timestamp_creacion'] ?? '',
-      hashOrigen: json['hash_sha256'] ?? json['hash_origen'] ?? '',
+      loteId: json['lote_id'] ?? json['id'] ?? '',
+      tipoBien: json['tipo_bien'] ?? json['tipo'] ?? '',
+      cantidadKg: (json['cantidad_kg'] ?? json['cantidad'] ?? json['cantidad_kg']) is num
+          ? (json['cantidad_kg'] ?? json['cantidad'] ?? json['cantidad_kg'] as num).toDouble()
+          : double.tryParse((json['cantidad_kg'] ?? json['cantidad'] ?? json['cantidad_kg'] ?? '0').toString()) ?? 0.0,
+      comunidadDestinoId: destinoId,
+      timestampCreacion: json['timestamp_creacion'] ?? json['t'] ?? json['timestamp'] ?? '',
+      hashOrigen: json['hash_sha256'] ?? json['hash_origen'] ?? json['hash'] ?? '',
     );
   }
 

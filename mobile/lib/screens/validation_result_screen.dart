@@ -26,19 +26,23 @@ class _ValidationResultScreenState extends State<ValidationResultScreen> {
     final theme = Theme.of(context);
     final lote = ModalRoute.of(context)!.settings.arguments as Lote;
 
-    // Cálculo robusto del hash local soportando formatos con y sin decimales
-    final String hash1Decimal = CryptographyService.calcularHash(lote, decimalPlaces: 1);
-    final String hash0Decimals = CryptographyService.calcularHash(lote, decimalPlaces: 0);
+    // Cálculo robusto del hash local soportando el estándar oficial (2 decimales con pipe '|') y formatos heredados
+    final String hashBackend = CryptographyService.calcularHash(lote); // Usa | y 2 decimales por defecto
+    final String hashLegacy1 = CryptographyService.calcularHash(lote, delimiter: '', decimalPlaces: 1);
+    final String hashLegacy0 = CryptographyService.calcularHash(lote, delimiter: '', decimalPlaces: 0);
 
     bool esValido = false;
-    String hashCalculado = hash1Decimal;
+    String hashCalculado = hashBackend;
 
-    if (CryptographyService.validarIntegridad(lote, hash1Decimal)) {
+    if (CryptographyService.validarIntegridad(lote, hashBackend)) {
       esValido = true;
-      hashCalculado = hash1Decimal;
-    } else if (CryptographyService.validarIntegridad(lote, hash0Decimals)) {
+      hashCalculado = hashBackend;
+    } else if (CryptographyService.validarIntegridad(lote, hashLegacy1)) {
       esValido = true;
-      hashCalculado = hash0Decimals;
+      hashCalculado = hashLegacy1;
+    } else if (CryptographyService.validarIntegridad(lote, hashLegacy0)) {
+      esValido = true;
+      hashCalculado = hashLegacy0;
     }
 
     final Color primaryColor = esValido ? const Color(0xFF10B981) : const Color(0xFFD32F2F); // Emerald Green o Crimson Red

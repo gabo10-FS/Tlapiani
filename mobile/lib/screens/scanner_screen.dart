@@ -132,7 +132,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 alignment: Alignment.topRight,
                 child: Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: const Icon(Icons.center_focus_weak, color: Color(0xFF10B981), size: 24),
+                  child: Icon(Icons.center_focus_weak, color: Color(0xFF10B981), size: 24),
                 ),
               ),
             ),

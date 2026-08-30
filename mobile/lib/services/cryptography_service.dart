@@ -7,11 +7,10 @@ class CryptographyService {
   /// 
   /// Concatena los siguientes campos: ID_Lote + Tipo_Bien + Cantidad + Destino + Timestamp.
   /// Admite un [delimiter] opcional (por defecto vacío, p.ej. '', o '|').
-  /// Utiliza un formateador para la cantidad (`cantidadKg`) con 1 decimal por defecto para
-  /// asegurar la compatibilidad con tipos flotantes del backend (ej. 25.0).
-  static String calcularHash(Lote lote, {String delimiter = '', int decimalPlaces = 1}) {
+  /// Utiliza un formateador para la cantidad (`cantidadKg`) con 2 decimales por defecto y
+  /// delimitador pipe (|) para asegurar la compatibilidad con el backend.
+  static String calcularHash(Lote lote, {String delimiter = '|', int decimalPlaces = 2}) {
     // Convertimos la cantidad a string con la cantidad de decimales adecuada.
-    // Si no tiene decimales (ej. es entero), se puede formatear de forma especial.
     final String cantidadStr = lote.cantidadKg.toStringAsFixed(decimalPlaces);
     
     final List<String> partes = [

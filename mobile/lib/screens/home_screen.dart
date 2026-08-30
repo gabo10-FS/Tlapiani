@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/database_service.dart';
-import '../models/lote_model.dart';
 import '../main.dart'; // Para acceder a TlapianiApp
 
 class HomeScreen extends StatefulWidget {
