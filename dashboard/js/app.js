@@ -15,6 +15,7 @@ import { mountMapa } from './views/mapa.js';
 import { mountDespacho } from './views/despacho.js';
 import { mountTransparencia } from './views/transparencia.js';
 import { mountUsuarios } from './views/usuarios.js';
+import { mountContenido } from './views/contenido.js';
 
 /* ---------------- Refs ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -30,6 +31,7 @@ const META = {
   '/despacho':      { title: 'Despacho & QR', sub: 'Asignación de rutas y etiquetas de trazabilidad.' },
   '/transparencia': { title: 'Portal de Transparencia', sub: 'Consulta pública de la cadena de custodia.' },
   '/usuarios':      { title: 'Gestión de Usuarios', sub: 'Alta y listado de usuarios (solo Administrador).' },
+  '/contenido':     { title: 'Contenido público', sub: 'Galería, centros de acopio, noticias e historias del sitio público.' },
 };
 
 /* Modo de chrome según ruta + sesión */
@@ -161,6 +163,7 @@ function registerRoutes() {
   router.register('/despacho',   () => mountDespacho(viewRoot),  { requiresAuth: true });
   router.register('/transparencia', ({ param }) => mountTransparencia(viewRoot, param)); // público
   router.register('/usuarios',   () => mountUsuarios(viewRoot),  { requiresAuth: true });
+  router.register('/contenido',  () => mountContenido(viewRoot), { requiresAuth: true });
 
   router.setNotFound(() => {
     applyMode('public');

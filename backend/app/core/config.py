@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     # Orígenes permitidos para el dashboard (CORS). Coma-separado en .env.
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # Fotos de galería (app/api/v1/galeria.py) se guardan en disco bajo esta
+    # carpeta (relativa al cwd del proceso, normalmente backend/) y se sirven
+    # como estáticos en /uploads (ver app/main.py). En el deploy bare-metal
+    # de producción, Apache puede servir esta ruta directamente en vez de
+    # pasar por FastAPI — ver backend/deploy/tlapiani.conf.
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_MB: int = 5
+
     @model_validator(mode="after")
     def _validar_pesos_score_urgencia(self) -> "Settings":
         suma = self.PRIORIDAD_ALPHA + self.PRIORIDAD_BETA + self.PRIORIDAD_GAMMA

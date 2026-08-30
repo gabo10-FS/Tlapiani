@@ -42,6 +42,7 @@ js/
     despacho.js       Hash SHA-256 (Web Crypto) + QR canvas + imprimir
     transparencia.js  Buscador público + línea de tiempo de custodia
     usuarios.js       Alta y listado de usuarios (RF-2.1, solo Administrador)
+    contenido.js      Galería, centros de acopio, noticias e historias (solo Administrador)
     ui.js             Helpers compartidos
 ```
 

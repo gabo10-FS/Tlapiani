@@ -8,6 +8,8 @@ ehthumbs.db
 Thumbs.db
 
 # Python / FastAPI
+backend/uploads/*
+!backend/uploads/.gitkeep
 __pycache__/
 *.py[cod]
 *$py.class

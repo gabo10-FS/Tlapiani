@@ -7,32 +7,26 @@
    MODO DE CONEXIÓN
    -----------------
    API_BASE + DEMO_MODE=false conectan contra el backend real
-   (FastAPI, ver ../backend/README.md). El contrato real SOLO
-   cubre estos endpoints:
+   (FastAPI, ver ../backend/README.md). El contrato real cubre:
      POST /api/v1/auth/login
      POST /api/v1/usuarios/registrar   · GET /api/v1/usuarios      (Administrador)
      GET  /api/v1/comunidades/prioridad
      POST /api/v1/donaciones/registrar
      POST /api/v1/donaciones/{lote_id}/despachar
      GET  /api/v1/donaciones/historial/{lote_id}   (público)
+     GET/POST /api/v1/centros-acopio                (POST solo Administrador)
+     GET/POST /api/v1/comunidades/{id}/galeria       (POST solo Administrador, multipart)
+     GET/POST /api/v1/noticias                       (POST solo Administrador)
+     GET/POST /api/v1/historias                      (POST solo Administrador)
 
-   El backend NO expone (todavía): listado general de lotes,
-   catálogo de comunidades sin auth, centros de acopio, galería,
-   historias ni noticias. `lotes()`/`comunidades()`/`centrosAcopio()`/
-   `tiposBien()` siguen en modo simulado (mock/data.js) aunque
-   DEMO_MODE=false porque son insumos de pantallas que sí funcionan
-   de verdad (Inventario, Despacho) — no se inventa el endpoint que
-   falta, se documenta aquí función por función. `galeria()`,
-   `subirImagen()`, `historias()`, `noticias()` y `centrosGeo()` YA
-   NO se usan desde ninguna vista (esas secciones se ocultaron del
-   dashboard en vez de mostrar contenido inventado) — quedan aquí
-   solo por si se reactivan cuando el backend las soporte.
+   `tiposBien()` sigue en modo simulado (mock/data.js): `tipo_bien` es
+   texto libre en el backend, ese datalist es solo UX, no hay catálogo
+   que crear. `comunidades()`/`galeriaDestacada()` (mock/data.js) ya no
+   se usan desde ninguna vista. `lotes()` mantiene un caché de sesión
+   porque no existe GET /api/v1/donaciones para listar todos los lotes.
    ============================================================ */
 
-import {
-  COMUNIDADES, CENTROS_ACOPIO, TIPOS_BIEN, LOTES,
-  CENTROS_GEO, GALERIA, HISTORIAS, NOTICIAS,
-} from './mock/data.js';
+import { TIPOS_BIEN, LOTES } from './mock/data.js';
 
 const TOKEN_KEY = 'tlapiani_jwt';
 const USER_KEY = 'tlapiani_user';
@@ -62,8 +56,11 @@ function forceLogout(reason) {
 }
 
 /* ---------------- Fetch con interceptor ---------------- */
+// `body` como FormData (subida de galería) se manda tal cual, sin
+// Content-Type manual -- el navegador arma el boundary multipart solo.
 async function request(path, { method = 'GET', body, auth: needsAuth = true } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+  const isFormData = body instanceof FormData;
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
   const token = auth.getToken();
   if (needsAuth && token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -72,7 +69,7 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true } = 
     res = await fetch(`${API_BASE}${path}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
     });
   } catch {
     throw new Error(`No se pudo conectar con el backend en ${API_BASE}. ¿Está corriendo uvicorn?`);
@@ -90,11 +87,9 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true } = 
   return res.status === 204 ? null : res.json();
 }
 
-/* ---------------- Helpers demo ---------------- */
+/* ---------------- Helpers ---------------- */
 const delay = (ms = 260) => new Promise(r => setTimeout(r, ms));
 let lotesDB = [...LOTES];
-// Copia mutable de la galería (para subir imágenes en modo demo)
-const galeriaDB = JSON.parse(JSON.stringify(GALERIA));
 
 /* SHA-256 real vía Web Crypto (se usa en algunas vistas para armar el JSON del QR) */
 export async function sha256(text) {
@@ -133,6 +128,45 @@ function adaptLoteRegistrado(res, body, comunidadNombre) {
     estado: res.status,
     fecha: String(res.timestamp_creacion).slice(0, 10),
     hash: res.hash_sha256,
+  };
+}
+
+// CentroAcopioResponse -> forma { id, nombre, estado, lat, lng, capacidad }
+// (mapCommon.js::addCentrosCercanos espera lat/lng en minúscula, no latitud/longitud)
+function adaptCentro(c) {
+  return {
+    id: c.id,
+    nombre: c.nombre,
+    estado: c.estado,
+    lat: Number(c.latitud),
+    lng: Number(c.longitud),
+    capacidad: c.capacidad,
+  };
+}
+
+// FotoComunidadResponse -> forma { url (absoluta), caption, fecha }
+function adaptFoto(f) {
+  return {
+    id: f.id,
+    url: `${API_BASE}${f.url}`,
+    caption: f.caption,
+    fecha: String(f.created_at).slice(0, 10),
+  };
+}
+
+// NoticiaResponse -> forma { id, prioridad, nivel, tipo, zona, fecha, titulo, resumen, img }
+function adaptNoticia(n) {
+  return {
+    id: n.id, prioridad: n.prioridad, nivel: n.nivel, tipo: n.tipo, zona: n.zona,
+    fecha: n.fecha, titulo: n.titulo, resumen: n.resumen, img: n.img_url,
+  };
+}
+
+// HistoriaResponse -> forma { id, titulo, comunidad, img, resumen, impacto, cita, autor }
+function adaptHistoria(h) {
+  return {
+    id: h.id, titulo: h.titulo, comunidad: h.comunidad, img: h.img_url,
+    resumen: h.resumen, impacto: h.impacto, cita: h.cita, autor: h.autor,
   };
 }
 
@@ -188,22 +222,30 @@ export const api = {
     return request('/api/v1/usuarios/registrar', { method: 'POST', body: payload });
   },
 
-  /* --- Catálogos (mock — sin endpoint público en el backend real) --- */
-  async comunidades() {
-    await delay(120); return [...COMUNIDADES];
-  },
   /* Comunidades + score de urgencia (real) — también sirve como catálogo
      de comunidades con id numérico real para el formulario de Inventario. */
   async comunidadesPrioridad() {
     const rows = await request('/api/v1/comunidades/prioridad');
     return rows.map(adaptComunidad).sort((a, b) => b.score - a.score);
   },
+  /* --- Centros de acopio (real, GET público / POST solo Administrador) --- */
+  async centrosAcopioGeo() {
+    const rows = await request('/api/v1/centros-acopio', { auth: false });
+    return rows.map(adaptCentro);
+  },
   async centrosAcopio() {
-    // El backend real solo guarda `origen_acopio` como texto libre (no hay catálogo).
-    await delay(80); return [...CENTROS_ACOPIO];
+    // El backend guarda `origen_acopio` del lote como texto libre (no FK) --
+    // este catálogo solo alimenta el <select>, por eso se devuelven nombres.
+    const rows = await api.centrosAcopioGeo();
+    return rows.map(c => c.nombre);
+  },
+  async crearCentroAcopio(payload) {
+    // payload: { nombre, estado, latitud, longitud, capacidad }
+    const c = await request('/api/v1/centros-acopio', { method: 'POST', body: payload });
+    return adaptCentro(c);
   },
   async tiposBien() {
-    // Igual: `tipo_bien` es texto libre en el backend real; el datalist es solo UX.
+    // `tipo_bien` es texto libre en el backend real; el datalist es solo UX.
     await delay(80); return [...TIPOS_BIEN];
   },
 
@@ -246,36 +288,46 @@ export const api = {
     };
   },
 
-  /* --- Centros de acopio con coordenadas (mock — sin endpoint real) --- */
+  /* --- Centros de acopio con coordenadas, para "centros cercanos" (real) --- */
   async centrosGeo() {
-    await delay(100); return [...CENTROS_GEO];
+    return api.centrosAcopioGeo();
   },
 
-  /* --- Galería por comunidad (mock — sin endpoint real) --- */
+  /* --- Galería por comunidad (real, GET público / POST solo Administrador) --- */
   async galeria(comunidadId) {
-    await delay(120); return galeriaDB[comunidadId] ? [...galeriaDB[comunidadId]] : [];
+    const rows = await request(`/api/v1/comunidades/${comunidadId}/galeria`, { auth: false });
+    return rows.map(adaptFoto);
   },
-  async galeriaDestacada() {
-    await delay(140);
-    const out = [];
-    for (const c of COMUNIDADES) (galeriaDB[c.id] || []).forEach(g => out.push({ ...g, comunidad: c.nombre, comunidadId: c.id }));
-    return out;
-  },
-  async subirImagen(comunidadId, item) {
-    await delay(200);
-    if (!galeriaDB[comunidadId]) galeriaDB[comunidadId] = [];
-    galeriaDB[comunidadId].unshift({ ...item, fecha: new Date().toISOString().slice(0, 10) });
-    return galeriaDB[comunidadId][0];
+  async subirImagen(comunidadId, file, caption) {
+    // `file` es un File real (input type=file), no un dataURL -- se sube
+    // como multipart/form-data, no se genera ninguna URL en el cliente.
+    const fd = new FormData();
+    fd.append('caption', caption);
+    fd.append('file', file);
+    const f = await request(`/api/v1/comunidades/${comunidadId}/galeria`, { method: 'POST', body: fd });
+    return adaptFoto(f);
   },
 
-  /* --- Historias / casos de éxito (mock — sin endpoint real) --- */
+  /* --- Historias / casos de éxito (real, GET público / POST solo Administrador) --- */
   async historias() {
-    await delay(160); return [...HISTORIAS];
+    const rows = await request('/api/v1/historias', { auth: false });
+    return rows.map(adaptHistoria);
+  },
+  async crearHistoria(payload) {
+    // payload: { titulo, comunidad, resumen, cita, autor, impacto, img_url? }
+    const h = await request('/api/v1/historias', { method: 'POST', body: payload });
+    return adaptHistoria(h);
   },
 
-  /* --- Noticias / alertas (mock — sin endpoint real) --- */
+  /* --- Noticias / alertas (real, GET público / POST solo Administrador) --- */
   async noticias() {
-    await delay(160); return [...NOTICIAS].sort((a, b) => b.prioridad - a.prioridad);
+    const rows = await request('/api/v1/noticias', { auth: false });
+    return rows.map(adaptNoticia);
+  },
+  async crearNoticia(payload) {
+    // payload: { titulo, resumen, zona, fecha, nivel, tipo, prioridad, img_url? }
+    const n = await request('/api/v1/noticias', { method: 'POST', body: payload });
+    return adaptNoticia(n);
   },
 
   /* --- Transparencia (real, público, sin JWT) --- */
