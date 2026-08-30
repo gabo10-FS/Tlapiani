@@ -21,9 +21,11 @@ Uso:
     # opción B: interactivo (pide lo que falte, la contraseña no se muestra en pantalla)
     python bootstrap_admin.py
 
-Es idempotente: si ya existe un usuario con ese email, o si ya hay
-comunidades en la base, no vuelve a insertarlos (evita duplicados si se
-corre más de una vez por error).
+Es idempotente para las comunidades (si ya hay, no vuelve a insertarlas).
+Para el usuario: si ya existe alguien con ese email, pregunta si quieres
+actualizarle la contraseña a la que acabas de escribir (por ejemplo, si
+antes se creó con seed_demo.py y sigue teniendo la contraseña de prueba
+"admin123") en vez de dejarlo tal cual sin avisar.
 
 Las comunidades de ejemplo se marcan con el prefijo "[EJEMPLO]" en el
 nombre para que nadie las confunda con datos reales en un vistazo al mapa
@@ -84,7 +86,17 @@ async def bootstrap() -> None:
     async with AsyncSessionLocal() as db:
         existe = (await db.execute(select(Usuario).where(Usuario.email == email))).scalar_one_or_none()
         if existe:
-            print(f"Ya existe un usuario con el email {email!r} (rol={existe.rol}) — no se crea de nuevo.")
+            resp = input(
+                f"Ya existe un usuario con el email {email!r} (rol={existe.rol}). "
+                "¿Actualizar su contraseña a la que acabas de escribir? [s/N]: "
+            ).strip().lower()
+            if resp == "s":
+                existe.password_hash = hash_password(password)
+                if existe.rol != "Administrador":
+                    existe.rol = "Administrador"
+                print(f"Contraseña actualizada para {email!r}.")
+            else:
+                print("No se modificó el usuario existente.")
         else:
             db.add(Usuario(
                 nombre_completo=nombre, email=email,
