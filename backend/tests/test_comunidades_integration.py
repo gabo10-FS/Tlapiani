@@ -5,15 +5,20 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
-async def test_listar_prioridad_sin_token_devuelve_401(client):
+async def test_listar_prioridad_sin_token_devuelve_200(client, seed_comunidad):
+    # Público a propósito: el sitio de visitantes (publico.js) lo llama sin
+    # sesión para el mapa de prioridad y el buscador "Ubica tu estado".
     resp = await client.get("/api/v1/comunidades/prioridad")
-    assert resp.status_code == 401
+    assert resp.status_code == 200
+    comunidades = resp.json()
+    assert len(comunidades) == 1
+    assert comunidades[0]["comunidad_id"] == seed_comunidad
 
 
 async def test_listar_prioridad_con_cualquier_rol_autenticado_devuelve_200(
     client, seed_usuarios, seed_comunidad, login_as
 ):
-    # listar_prioridad solo exige estar autenticado, no un rol específico
+    # También funciona autenticado (lo usa el mapa interno de administración)
     token = await login_as(client, seed_usuarios["Donante"])
     resp = await client.get(
         "/api/v1/comunidades/prioridad", headers={"Authorization": f"Bearer {token}"}

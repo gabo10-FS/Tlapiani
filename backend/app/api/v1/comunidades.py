@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.deps import get_current_usuario, require_roles
+from app.api.v1.deps import require_roles
 from app.db.session import get_db
 from app.models.comunidad import Comunidad
 from app.models.usuario import Usuario
@@ -21,8 +21,14 @@ router = APIRouter(prefix="/comunidades", tags=["comunidades"])
 @router.get("/prioridad", response_model=list[ComunidadPrioridadResponse])
 async def listar_prioridad(
     db: AsyncSession = Depends(get_db),
-    _usuario: Usuario = Depends(get_current_usuario),
 ) -> list[ComunidadPrioridadResponse]:
+    """Público a propósito: el sitio de visitantes (dashboard/js/views/publico.js)
+    llama este mismo endpoint sin sesión para pintar el mapa de prioridad y el
+    buscador "Ubica tu estado". Antes exigía JWT (`get_current_usuario`), lo que
+    dejaba esa vista rota para cualquier visitante sin cuenta — nombre/estado/
+    coordenadas/score de una comunidad no son datos sensibles, así que se
+    alinea con el resto de los endpoints públicos (centros-acopio, noticias,
+    historias, galería)."""
     resultado = await db.execute(select(Comunidad).order_by(Comunidad.score_urgencia.desc()))
     comunidades = resultado.scalars().all()
     return [

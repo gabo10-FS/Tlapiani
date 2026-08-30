@@ -34,20 +34,26 @@ const TILES = {
 };
 const currentTheme = () => document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 
-/* ---- Un solo observer de tema para toda la app ---- */
-let activeTileSwap = null;
+/* ---- Un solo observer de tema para toda la app (varios mapas pueden
+   estar activos a la vez, p. ej. el mapa de estados + el de comunidades
+   en la misma vista pública) ---- */
+let themeSwapCallbacks = [];
 let themeObserver = null;
 function ensureThemeObserver() {
   if (themeObserver) return;
-  themeObserver = new MutationObserver(() => activeTileSwap && activeTileSwap(currentTheme()));
+  themeObserver = new MutationObserver(() => {
+    const theme = currentTheme();
+    themeSwapCallbacks.forEach(cb => cb(theme));
+  });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
 
-/* ---- Mapa activo (para limpiar al cambiar de vista) ---- */
-let activeMap = null;
+/* ---- Mapas activos (para limpiar al cambiar de vista) ---- */
+let activeCleanups = [];
 export function destroyActiveMap() {
-  activeTileSwap = null;
-  if (activeMap) { try { activeMap.remove(); } catch {} activeMap = null; }
+  themeSwapCallbacks = [];
+  activeCleanups.forEach(fn => { try { fn(); } catch {} });
+  activeCleanups = [];
 }
 
 /**
@@ -56,24 +62,23 @@ export function destroyActiveMap() {
  */
 export async function buildPriorityMap(mapEl, comunidades, opts = {}) {
   const L = await loadLeaflet();
-  destroyActiveMap();
   ensureThemeObserver();
 
   mapEl.innerHTML = '';
   const map = L.map(mapEl, { zoomControl: true, scrollWheelZoom: opts.scrollWheelZoom ?? true })
     .setView(opts.center || [19.4, -99.1], opts.zoom || 5);
-  activeMap = map;
+  activeCleanups.push(() => map.remove());
 
   let tileLayer = L.tileLayer(TILES[currentTheme()], {
     attribution: '© OpenStreetMap · © CARTO', subdomains: 'abcd', maxZoom: 19,
   }).addTo(map);
 
   // Cambio de tiles al alternar el tema
-  activeTileSwap = (theme) => {
+  themeSwapCallbacks.push((theme) => {
     const nl = L.tileLayer(TILES[theme], { attribution: '© OpenStreetMap · © CARTO', subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     if (tileLayer) map.removeLayer(tileLayer);
     tileLayer = nl;
-  };
+  });
 
   // Marcadores "glow" (estilo mapa de calor) por comunidad
   comunidades.forEach(c => {
@@ -140,6 +145,63 @@ export async function buildPriorityMap(mapEl, comunidades, opts = {}) {
   }
 
   return { map, L, addCentrosCercanos, clearCentros };
+}
+
+/**
+ * Mapa "elige tu estado" (inspirado en el buscador de delegaciones de
+ * Cruz Roja Mexicana): silueta de los 32 estados, resalta los que ya
+ * tienen comunidades registradas y abre un panel al hacer clic.
+ * @param {HTMLElement} mapEl
+ * @param {object} geojson  FeatureCollection de los 32 estados (properties.name)
+ * @param {Map<string, object[]>} comunidadesPorEstado
+ * @param {{ onSelect?: (nombreEstado: string, comunidades: object[]) => void }} opts
+ * @returns {Promise<{map, L, layer, selectEstado}>}
+ */
+export async function buildStateMap(mapEl, geojson, comunidadesPorEstado, opts = {}) {
+  const L = await loadLeaflet();
+  mapEl.innerHTML = '';
+  const map = L.map(mapEl, {
+    zoomControl: false, attributionControl: false, dragging: false,
+    scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, touchZoom: false,
+  });
+  activeCleanups.push(() => map.remove());
+
+  // Colores como variables CSS: se adaptan solas al tema, sin redibujar.
+  const withData = (name) => (comunidadesPorEstado.get(name) || []).length > 0;
+
+  let selected = null;
+  function styleFor(feature) {
+    const name = feature.properties.name;
+    const isSel = selected === name;
+    return {
+      fillColor: withData(name) ? 'var(--accent-emerald)' : 'var(--bg-tertiary)',
+      fillOpacity: isSel ? 0.95 : (withData(name) ? 0.55 : 0.9),
+      color: isSel ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+      weight: isSel ? 3 : 1.5,
+    };
+  }
+
+  const layer = L.geoJSON(geojson, {
+    style: styleFor,
+    onEachFeature(feature, lyr) {
+      const name = feature.properties.name;
+      lyr.on('mouseover', () => { if (selected !== name) lyr.setStyle({ fillOpacity: 0.85 }); });
+      lyr.on('mouseout', () => { if (selected !== name) lyr.setStyle(styleFor(feature)); });
+      lyr.on('click', () => selectEstado(name));
+      lyr.bindTooltip(name, { sticky: true, className: 'state-tooltip' });
+    },
+  }).addTo(map);
+  map.fitBounds(layer.getBounds(), { padding: [6, 6] });
+
+  function selectEstado(name) {
+    selected = name;
+    layer.eachLayer(lyr => lyr.setStyle(styleFor(lyr.feature)));
+    opts.onSelect && opts.onSelect(name, comunidadesPorEstado.get(name) || []);
+  }
+
+  setTimeout(() => map.invalidateSize(), 60);
+
+  return { map, L, layer, selectEstado };
 }
 
 function haversine(la1, lo1, la2, lo2) {

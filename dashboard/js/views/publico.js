@@ -7,7 +7,7 @@
 
 import { api } from '../api.js';
 import { esc, scoreBadge, openDialog, closeDialog } from './ui.js';
-import { buildPriorityMap } from '../mapCommon.js';
+import { buildPriorityMap, buildStateMap } from '../mapCommon.js';
 import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -35,6 +35,26 @@ export async function mountPublico(root, scrollTo) {
     </section>
 
     <div class="pub">
+      <!-- UBICA TU ESTADO -->
+      <section class="pub-section" id="sec-estados">
+        <span class="pub-eyebrow">Cobertura nacional</span>
+        <h3>Ubica tu estado</h3>
+        <p class="pub-lead">Selecciona un estado en el mapa: si ya tenemos comunidades ahí verás cuáles son,
+        y si no, sabrás que tu apoyo puede ser el primer paso para llegar.</p>
+        <div class="grid-map" style="margin-top:22px">
+          <div class="card map-card">
+            <div id="state-map"></div>
+          </div>
+          <aside class="card cpanel" id="state-panel">
+            <div class="cpanel__empty">
+              <div class="cpanel__empty-ico">◈</div>
+              <h4>Selecciona un estado</h4>
+              <p class="text-muted text-sm">Haz clic en el mapa para ver las comunidades atendidas ahí.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
       <!-- MAPA DE RECURSOS -->
       <section class="pub-section" id="sec-mapa">
         <span class="pub-eyebrow">Dónde actuamos</span>
@@ -64,7 +84,7 @@ export async function mountPublico(root, scrollTo) {
       </section>
 
       <!-- NOTICIAS -->
-      <section class="pub-section" id="sec-noticias">
+      <section class="pub-section pub-section--tint" id="sec-noticias">
         <span class="pub-eyebrow">Entérate de lo que está pasando</span>
         <h3>Noticias y alertas · ordenadas por prioridad de la IA</h3>
         <div class="news-grid" id="news-grid"></div>
@@ -106,7 +126,7 @@ export async function mountPublico(root, scrollTo) {
       </section>
 
       <!-- QUÉ HACEMOS -->
-      <section class="pub-section" id="sec-hacemos">
+      <section class="pub-section pub-section--tint" id="sec-hacemos">
         <span class="pub-eyebrow">Qué puedes hacer aquí</span>
         <h3>Una plataforma, tres capas de confianza</h3>
         <div class="feat-grid">
@@ -145,6 +165,14 @@ export async function mountPublico(root, scrollTo) {
   const galeriaMap = {};
   await Promise.all(comunidades.map(async c => { galeriaMap[c.id] = await api.galeria(c.id); }));
 
+  // Agrupar comunidades por estado, para el buscador "Ubica tu estado"
+  const comunidadesPorEstado = new Map();
+  comunidades.forEach(c => {
+    if (!comunidadesPorEstado.has(c.estado)) comunidadesPorEstado.set(c.estado, []);
+    comunidadesPorEstado.get(c.estado).push(c);
+  });
+  let pubMapInstance = null;
+
   // Animaciones
   runViewAnimations(root, () => {
     if (reduced) {
@@ -174,13 +202,28 @@ export async function mountPublico(root, scrollTo) {
     revealOnScroll('#sec-cta');
   });
 
+  // Mapa "elige tu estado"
+  try {
+    const estadosGeo = await fetch('./data/mx-estados.geojson').then(r => {
+      if (!r.ok) throw new Error(`geojson ${r.status}`);
+      return r.json();
+    });
+    await buildStateMap(document.getElementById('state-map'), estadosGeo, comunidadesPorEstado, {
+      onSelect: (nombreEstado, lista) => renderStatePanel(nombreEstado, lista),
+    });
+  } catch (err) {
+    document.getElementById('state-map').innerHTML = `<div class="map-skeleton">No se pudo cargar el mapa de estados.</div>`;
+    console.error(err);
+  }
+
   // Mapa público
   document.getElementById('pub-map-count').textContent = `${comunidades.length} comunidades`;
   try {
-    const { addCentrosCercanos, clearCentros } = await buildPriorityMap(document.getElementById('pub-map'), comunidades, {
+    const { map: mapaPuntos, addCentrosCercanos, clearCentros } = await buildPriorityMap(document.getElementById('pub-map'), comunidades, {
       galeria: galeriaMap, scrollWheelZoom: false,
       onSelect: (c) => renderCommunityPanel(c),
     });
+    pubMapInstance = mapaPuntos;
     document.getElementById('pub-cercanos').addEventListener('change', (e) => {
       const side = document.getElementById('pub-map-side');
       if (!e.target.checked) { clearCentros(); return; }
@@ -219,6 +262,40 @@ export async function mountPublico(root, scrollTo) {
       <text x="100" y="84" text-anchor="middle" class="gauge-score">${score}</text>
       <text x="100" y="106" text-anchor="middle" class="gauge-label" fill="${col}">${lbl}</text>
     </svg>`;
+  }
+
+  /* ---------- Panel del estado seleccionado ---------- */
+  function renderStatePanel(nombreEstado, lista) {
+    const panel = document.getElementById('state-panel');
+    if (!lista.length) {
+      panel.innerHTML = `
+        <div class="cpanel__head"><div class="cpanel__title-wrap"><h4 class="cpanel__name">${esc(nombreEstado)}</h4></div></div>
+        <p class="text-muted text-sm" style="margin-top:8px">Todavía no tenemos comunidades registradas en este estado.
+        Tu apoyo puede ser el primer paso para llegar aquí.</p>`;
+      return;
+    }
+    panel.innerHTML = `
+      <div class="cpanel__head">
+        <div class="cpanel__title-wrap"><h4 class="cpanel__name">${esc(nombreEstado)}</h4></div>
+        <span class="badge badge--emerald">${lista.length} comunidad${lista.length === 1 ? '' : 'es'}</span>
+      </div>
+      <div class="legend-list" id="state-comunidades" style="margin-top:12px"></div>`;
+    const list = document.getElementById('state-comunidades');
+    list.innerHTML = lista.map(c => {
+      const b = scoreBadge(c.score);
+      return `<button class="legend-row legend-row--btn" data-goto="${esc(c.id)}" style="justify-content:space-between">
+        <span>${esc(c.nombre)}</span><span class="badge badge--${b.cls}">${c.score}</span></button>`;
+    }).join('');
+    lista.forEach(c => {
+      list.querySelector(`[data-goto="${c.id}"]`)?.addEventListener('click', () => {
+        document.getElementById('sec-mapa')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          pubMapInstance && pubMapInstance.flyTo([c.lat, c.lng], 10);
+          renderCommunityPanel(c);
+        }, 450);
+      });
+    });
+    enterStagger('#state-comunidades .legend-row--btn', { stagger: 0.05 });
   }
 
   function resourceIcons() {
