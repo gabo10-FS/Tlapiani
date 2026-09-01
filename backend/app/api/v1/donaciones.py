@@ -32,7 +32,12 @@ async def registrar_lote(
     if comunidad is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comunidad de destino no encontrada")
 
-    ahora = timestamp_utc()
+    # Segundos enteros (sin microsegundos): generar_sello ya trunca el timestamp a
+    # segundos, y created_at debe guardar EXACTAMENTE ese mismo instante para que
+    # sync_service pueda recalcular el sello y verificarlo (defensa en profundidad).
+    # Truncar aquí evita depender de si el motor de BD redondea o trunca los
+    # microsegundos al persistir un DATETIME sin precisión fraccionaria.
+    ahora = timestamp_utc().replace(microsecond=0)
     lote_id = await siguiente_lote_id(db, ahora.year)
     sello = generar_sello(lote_id, payload.tipo_bien, payload.cantidad_kg, payload.comunidad_destino_id, ahora)
 
@@ -44,6 +49,7 @@ async def registrar_lote(
         comunidad_destino_id=payload.comunidad_destino_id,
         estado_actual="Creado",
         hash_sha256=sello,
+        created_at=ahora,
     )
     db.add(lote)
     await db.commit()
