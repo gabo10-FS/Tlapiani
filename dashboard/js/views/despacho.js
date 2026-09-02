@@ -159,7 +159,7 @@ export async function mountDespacho(root) {
         <p class="hash" style="text-align:center">${esc(res.hash)}</p>
         <div class="dialog__footer" style="justify-content:center">
           <button class="btn btn--ghost" id="qr-json">Ver JSON</button>
-          <button class="btn btn--emerald" id="qr-print">🖨 Imprimir etiqueta</button>
+          <button class="btn btn--emerald" id="qr-print">Imprimir etiqueta</button>
         </div>
       </div>`;
     drawQR(document.getElementById('qr-canvas'), payload);

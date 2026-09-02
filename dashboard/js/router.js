@@ -7,7 +7,7 @@
 
 import { auth } from './api.js';
 import { cleanupView } from './animations.js';
-import { destroyActiveMap } from './mapCommon.js';
+import { destroyActiveMap } from './mapCommon.js?v=20260831e';
 
 const routes = new Map();
 let notFound = null;

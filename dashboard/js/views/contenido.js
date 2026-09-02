@@ -12,7 +12,17 @@
 
 import { api, auth } from '../api.js';
 import { esc, skeleton } from './ui.js';
-import { runViewAnimations, enterPanel, enterStagger } from '../animations.js';
+import { runViewAnimations, enterPanel } from '../animations.js';
+
+/* Iconos de las pestañas como SVG en línea (stroke=currentColor): un
+   glifo Unicode como ⬡ o ◧ cae a la fuente de emoji de Windows y se ve
+   como un pictograma a color random -- un SVG siempre se ve igual. */
+const TAB_SVG = {
+  foto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="10" r="1.4"/><path d="M21 16.5l-5.2-5.2-3.8 3.8-2.6-2.6L3 18"/></svg>',
+  centro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5L12 3 3 7.5l9 4.5 9-4.5z"/><path d="M3 7.5v9L12 21l9-4.5v-9"/><path d="M12 12v9"/></svg>',
+  noticia: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12v13a3 3 0 0 0 3 3H7a3 3 0 0 1-3-3V4z"/><path d="M16 8h4v9a3 3 0 0 1-3 3"/><path d="M7.5 8h5M7.5 11.5h5M7.5 15h3"/></svg>',
+  historia: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.6-5 4.4 1.5 6.5L12 16.7 6 20l1.5-6.5-5-4.4 6.6-.6 2.9-6z"/></svg>',
+};
 
 export async function mountContenido(root) {
   const me = auth.getUser();
@@ -26,60 +36,76 @@ export async function mountContenido(root) {
   }
 
   root.innerHTML = `
-    <div class="grid-2">
-      <section class="card" id="cnt-foto-card">
-        <div class="section-head"><h3>Subir foto de comunidad</h3></div>
-        <form id="cnt-foto-form" novalidate>
-          <label class="field" style="margin-bottom:14px">
-            <span>Comunidad</span>
-            <select name="comunidad" id="cnt-foto-comunidad" required><option value="">Cargando…</option></select>
-          </label>
-          <label class="field" style="margin-bottom:14px">
-            <span>Descripción de la imagen</span>
-            <input name="caption" required minlength="4" placeholder="Ej. Entrega de despensas en el centro comunitario" />
-          </label>
-          <label class="field" style="margin-bottom:14px">
-            <span>Archivo de imagen (JPG, PNG, WEBP o GIF, máx. 5 MB)</span>
-            <input name="file" id="cnt-foto-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required />
-          </label>
-          <button type="submit" class="btn btn--emerald btn--block">Publicar en la galería</button>
-        </form>
-      </section>
-
-      <section class="card" id="cnt-foto-list-card">
-        <div class="section-head">
-          <h3>Galería de la comunidad</h3>
-          <span class="badge badge--blue" id="cnt-foto-count">0</span>
+    <section class="cnt-shell" id="cnt-shell">
+      <div class="cnt-header">
+        <p class="text-muted text-sm cnt-lead">Todo lo que publiques aquí es visible de inmediato en el sitio de
+        visitantes. Elige qué quieres publicar:</p>
+        <div class="tabs" id="cnt-tabs" role="tablist">
+          <button class="tab is-active" type="button" data-tab="foto" role="tab" aria-selected="true">
+            <span class="tab-ico tab-ico--e">${TAB_SVG.foto}</span> Foto de comunidad</button>
+          <button class="tab" type="button" data-tab="centro" role="tab" aria-selected="false">
+            <span class="tab-ico tab-ico--b">${TAB_SVG.centro}</span> Centro de acopio</button>
+          <button class="tab" type="button" data-tab="noticia" role="tab" aria-selected="false">
+            <span class="tab-ico tab-ico--a">${TAB_SVG.noticia}</span> Noticia</button>
+          <button class="tab" type="button" data-tab="historia" role="tab" aria-selected="false">
+            <span class="tab-ico tab-ico--c">${TAB_SVG.historia}</span> Historia</button>
         </div>
-        <div id="cnt-foto-grid" class="gal-grid">${skeleton(2)}</div>
-      </section>
-    </div>
+      </div>
 
-    <div class="grid-2" style="margin-top:18px">
-      <section class="card" id="cnt-centro-card">
-        <div class="section-head"><h3>Nuevo centro de acopio</h3></div>
-        <form id="cnt-centro-form" novalidate>
-          <div class="form-grid">
-            <label class="field col-span-2"><span>Nombre</span>
-              <input name="nombre" required minlength="3" placeholder="Ej. Oaxaca — Nodo Sur" /></label>
-            <label class="field"><span>Estado</span>
-              <input name="estado" required minlength="3" placeholder="Ej. Oaxaca" /></label>
-            <label class="field"><span>Capacidad</span>
-              <input name="capacidad" required minlength="1" placeholder="Ej. 6 t/día" /></label>
-            <label class="field"><span>Latitud</span>
-              <input name="latitud" type="number" step="0.000001" required placeholder="17.0732" /></label>
-            <label class="field"><span>Longitud</span>
-              <input name="longitud" type="number" step="0.000001" required placeholder="-96.7266" /></label>
+      <div class="cnt-body">
+      <div class="cnt-panel is-active" data-panel="foto">
+        <div class="cnt-split">
+          <form id="cnt-foto-form" novalidate>
+            <label class="field" style="margin-bottom:14px">
+              <span>Comunidad</span>
+              <select name="comunidad" id="cnt-foto-comunidad" required><option value="">Cargando…</option></select>
+            </label>
+            <label class="field" style="margin-bottom:14px">
+              <span>Descripción de la imagen</span>
+              <input name="caption" required minlength="4" placeholder="Ej. Entrega de despensas en el centro comunitario" />
+            </label>
+            <label class="field" style="margin-bottom:14px">
+              <span>Archivo de imagen (JPG, PNG, WEBP o GIF, máx. 5 MB)</span>
+              <input name="file" id="cnt-foto-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required />
+            </label>
+            <button type="submit" class="btn btn--emerald btn--block">Publicar en la galería</button>
+          </form>
+          <div>
+            <div class="section-head" style="margin-bottom:12px">
+              <h4 style="font-size:14px">Galería de la comunidad</h4>
+              <span class="badge badge--blue" id="cnt-foto-count">0</span>
+            </div>
+            <div id="cnt-foto-grid" class="gal-grid">${skeleton(2)}</div>
           </div>
-          <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Agregar centro</button>
-        </form>
-        <div class="nav-divider"></div>
-        <div id="cnt-centro-list" class="legend-list">${skeleton(2)}</div>
-      </section>
+        </div>
+      </div>
 
-      <section class="card" id="cnt-noticia-card">
-        <div class="section-head"><h3>Publicar noticia</h3></div>
-        <form id="cnt-noticia-form" novalidate>
+      <div class="cnt-panel" data-panel="centro">
+        <div class="cnt-split">
+          <form id="cnt-centro-form" novalidate>
+            <div class="form-grid">
+              <label class="field col-span-2"><span>Nombre</span>
+                <input name="nombre" required minlength="3" placeholder="Ej. Oaxaca — Nodo Sur" /></label>
+              <label class="field"><span>Estado</span>
+                <input name="estado" required minlength="3" placeholder="Ej. Oaxaca" /></label>
+              <label class="field"><span>Capacidad</span>
+                <input name="capacidad" required minlength="1" placeholder="Ej. 6 t/día" /></label>
+              <label class="field"><span>Latitud</span>
+                <input name="latitud" type="number" step="0.000001" required placeholder="17.0732" /></label>
+              <label class="field"><span>Longitud</span>
+                <input name="longitud" type="number" step="0.000001" required placeholder="-96.7266" /></label>
+            </div>
+            <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Agregar centro</button>
+          </form>
+          <div>
+            <h4 style="font-size:14px;margin-bottom:12px">Centros ya registrados</h4>
+            <div id="cnt-centro-list" class="legend-list">${skeleton(2)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cnt-panel" data-panel="noticia">
+        <form id="cnt-noticia-form" novalidate class="cnt-form-solo">
           <div class="form-grid">
             <label class="field col-span-2"><span>Título</span>
               <input name="titulo" required minlength="4" /></label>
@@ -104,36 +130,42 @@ export async function mountContenido(root) {
           </div>
           <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Publicar noticia</button>
         </form>
-      </section>
-    </div>
+      </div>
 
-    <section class="card" id="cnt-historia-card" style="margin-top:18px">
-      <div class="section-head"><h3>Publicar historia / caso de éxito</h3></div>
-      <form id="cnt-historia-form" novalidate>
-        <div class="form-grid">
-          <label class="field col-span-2"><span>Título</span>
-            <input name="titulo" required minlength="4" /></label>
-          <label class="field"><span>Comunidad</span>
-            <input name="comunidad" required minlength="2" placeholder="Ej. Metlatónoc, Guerrero" /></label>
-          <label class="field"><span>Impacto</span>
-            <input name="impacto" required minlength="2" placeholder="Ej. 1,800 personas" /></label>
-          <label class="field col-span-2"><span>Resumen</span>
-            <input name="resumen" required minlength="10" /></label>
-          <label class="field col-span-2"><span>Cita</span>
-            <input name="cita" required minlength="4" placeholder="«…»" /></label>
-          <label class="field"><span>Autor de la cita</span>
-            <input name="autor" required minlength="2" /></label>
-          <label class="field"><span>URL de imagen (opcional)</span>
-            <input name="img_url" type="url" placeholder="https://…" /></label>
-        </div>
-        <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Publicar historia</button>
-      </form>
+      <div class="cnt-panel" data-panel="historia">
+        <form id="cnt-historia-form" novalidate class="cnt-form-solo">
+          <div class="form-grid">
+            <label class="field col-span-2"><span>Título</span>
+              <input name="titulo" required minlength="4" /></label>
+            <label class="field"><span>Comunidad</span>
+              <input name="comunidad" required minlength="2" placeholder="Ej. Metlatónoc, Guerrero" /></label>
+            <label class="field"><span>Impacto</span>
+              <input name="impacto" required minlength="2" placeholder="Ej. 1,800 personas" /></label>
+            <label class="field col-span-2"><span>Resumen</span>
+              <input name="resumen" required minlength="10" /></label>
+            <label class="field col-span-2"><span>Cita</span>
+              <input name="cita" required minlength="4" placeholder="«…»" /></label>
+            <label class="field"><span>Autor de la cita</span>
+              <input name="autor" required minlength="2" /></label>
+            <label class="field"><span>URL de imagen (opcional)</span>
+              <input name="img_url" type="url" placeholder="https://…" /></label>
+          </div>
+          <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Publicar historia</button>
+        </form>
+      </div>
+      </div>
     </section>`;
 
+  document.getElementById('cnt-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    document.querySelectorAll('#cnt-tabs .tab').forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
+    btn.classList.add('is-active'); btn.setAttribute('aria-selected', 'true');
+    document.querySelectorAll('.cnt-panel').forEach(p => p.classList.toggle('is-active', p.dataset.panel === btn.dataset.tab));
+  });
+
   runViewAnimations(root, () => {
-    enterPanel('#cnt-foto-card', { delay: 0.03 });
-    enterPanel('#cnt-foto-list-card', { delay: 0.08 });
-    enterStagger('#cnt-centro-card, #cnt-noticia-card, #cnt-historia-card', { delay: 0.14, stagger: 0.06 });
+    enterPanel('#cnt-shell');
   });
 
   /* ---------- Foto de comunidad ---------- */

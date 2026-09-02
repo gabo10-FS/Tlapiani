@@ -7,7 +7,7 @@
 
 import { api } from '../api.js';
 import { esc, scoreBadge, openDialog, closeDialog } from './ui.js';
-import { buildPriorityMap, buildStateMap } from '../mapCommon.js';
+import { buildUnifiedMap } from '../mapCommon.js?v=20260831e';
 import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -34,55 +34,42 @@ export async function mountPublico(root, scrollTo) {
       </div>
     </section>
 
-    <div class="pub">
-      <!-- UBICA TU ESTADO -->
-      <section class="pub-section" id="sec-estados">
-        <span class="pub-eyebrow">Cobertura nacional</span>
-        <h3>Ubica tu estado</h3>
-        <p class="pub-lead">Selecciona un estado en el mapa: si ya tenemos comunidades ahí verás cuáles son,
-        y si no, sabrás que tu apoyo puede ser el primer paso para llegar.</p>
-        <div class="grid-map" style="margin-top:22px">
-          <div class="card map-card">
-            <div id="state-map"></div>
+    <!-- MAPA UNIFICADO: elige tu estado + comunidades atendidas
+         Layout como el buscador de delegaciones de Cruz Roja: texto +
+         panel de info en una columna a la izquierda, mapa grande a la
+         derecha -- no texto arriba y mapa de ancho completo abajo. -->
+    <section class="map-split" id="sec-mapa">
+      <div class="map-split__info">
+        <span class="pub-eyebrow">Dónde actuamos</span>
+        <h3>Ubica tu estado y las comunidades que atendemos</h3>
+        <p class="pub-lead">Selecciona un estado para saber si ya tenemos presencia ahí, o haz clic directamente
+        en un punto para ver su nivel de urgencia, sus recursos clave y su galería.</p>
+        <aside class="map-float" id="pub-map-panel">
+          <div class="map-float__bar">
+            <span class="pill-count" id="pub-map-count">— comunidades</span>
+            <button class="btn btn--ghost btn--sm" id="pub-map-reset" hidden>← Vista nacional</button>
           </div>
-          <aside class="card cpanel" id="state-panel">
+          <div id="pub-map-body">
             <div class="cpanel__empty">
               <div class="cpanel__empty-ico">◈</div>
-              <h4>Selecciona un estado</h4>
-              <p class="text-muted text-sm">Haz clic en el mapa para ver las comunidades atendidas ahí.</p>
+              <h4>Explora el mapa</h4>
+              <p class="text-muted text-sm">Haz clic en un estado para ver sus comunidades, o en un punto para
+              conocer su detalle.</p>
             </div>
-          </aside>
-        </div>
-      </section>
-
-      <!-- MAPA DE RECURSOS -->
-      <section class="pub-section" id="sec-mapa">
-        <span class="pub-eyebrow">Dónde actuamos</span>
-        <h3>Mapa de prioridad y recursos</h3>
-        <p class="pub-lead">Explora las comunidades atendidas. Haz clic en un punto para ver su nivel de
-        urgencia, sus recursos clave y la galería de lo que está sucediendo ahí.</p>
-        <div class="grid-map" style="margin-top:22px">
-          <div class="card map-card">
-            <div class="map-topbar">
-              <span class="pill-count" id="pub-map-count">— comunidades</span>
-              <label class="switch" title="Ubica los centros de acopio más cercanos a ti">
-                <span class="switch__label">Centros de acopio cercanos</span>
-                <input type="checkbox" id="pub-cercanos" />
-                <span class="switch__track"><span class="switch__thumb"></span></span>
-              </label>
-            </div>
-            <div id="pub-map"><div class="map-skeleton">Cargando mapa…</div></div>
           </div>
-          <aside class="card cpanel" id="pub-map-side">
-            <div class="cpanel__empty">
-              <div class="cpanel__empty-ico">◉</div>
-              <h4>Selecciona un punto</h4>
-              <p class="text-muted text-sm">Haz clic en una comunidad del mapa para ver su información, recursos y galería.</p>
-            </div>
-          </aside>
-        </div>
-      </section>
+          <label class="switch map-float__near" title="Ubica los centros de acopio más cercanos a ti">
+            <span class="switch__label">Centros de acopio cercanos</span>
+            <input type="checkbox" id="pub-cercanos" />
+            <span class="switch__track"><span class="switch__thumb"></span></span>
+          </label>
+        </aside>
+      </div>
+      <div class="map-hero map-split__map">
+        <div id="pub-map"><div class="map-skeleton">Cargando mapa…</div></div>
+      </div>
+    </section>
 
+    <div class="pub">
       <!-- NOTICIAS -->
       <section class="pub-section pub-section--tint" id="sec-noticias">
         <span class="pub-eyebrow">Entérate de lo que está pasando</span>
@@ -165,12 +152,6 @@ export async function mountPublico(root, scrollTo) {
   const galeriaMap = {};
   await Promise.all(comunidades.map(async c => { galeriaMap[c.id] = await api.galeria(c.id); }));
 
-  // Agrupar comunidades por estado, para el buscador "Ubica tu estado"
-  const comunidadesPorEstado = new Map();
-  comunidades.forEach(c => {
-    if (!comunidadesPorEstado.has(c.estado)) comunidadesPorEstado.set(c.estado, []);
-    comunidadesPorEstado.get(c.estado).push(c);
-  });
   let pubMapInstance = null;
 
   // Animaciones
@@ -202,42 +183,36 @@ export async function mountPublico(root, scrollTo) {
     revealOnScroll('#sec-cta');
   });
 
-  // Mapa "elige tu estado"
+  // Mapa unificado: elige tu estado + comunidades, en un solo Leaflet map.
+  document.getElementById('pub-map-count').textContent = `${comunidades.length} comunidades`;
   try {
     const estadosGeo = await fetch('./data/mx-estados.geojson').then(r => {
       if (!r.ok) throw new Error(`geojson ${r.status}`);
       return r.json();
     });
-    await buildStateMap(document.getElementById('state-map'), estadosGeo, comunidadesPorEstado, {
-      onSelect: (nombreEstado, lista) => renderStatePanel(nombreEstado, lista),
+    const unified = await buildUnifiedMap(document.getElementById('pub-map'), estadosGeo, comunidades, {
+      scrollWheelZoom: false,
+      onSelectEstado: (nombreEstado, lista) => renderStatePanel(nombreEstado, lista),
+      onSelectComunidad: (c) => renderCommunityPanel(c),
+      onReset: () => renderPanelVacio(),
     });
-  } catch (err) {
-    document.getElementById('state-map').innerHTML = `<div class="map-skeleton">No se pudo cargar el mapa de estados.</div>`;
-    console.error(err);
-  }
-
-  // Mapa público
-  document.getElementById('pub-map-count').textContent = `${comunidades.length} comunidades`;
-  try {
-    const { map: mapaPuntos, addCentrosCercanos, clearCentros } = await buildPriorityMap(document.getElementById('pub-map'), comunidades, {
-      galeria: galeriaMap, scrollWheelZoom: false,
-      onSelect: (c) => renderCommunityPanel(c),
-    });
-    pubMapInstance = mapaPuntos;
+    pubMapInstance = unified;
+    document.getElementById('pub-map-reset').addEventListener('click', () => unified.goNacional());
     document.getElementById('pub-cercanos').addEventListener('change', (e) => {
-      const side = document.getElementById('pub-map-side');
-      if (!e.target.checked) { clearCentros(); return; }
+      const body = document.getElementById('pub-map-body');
+      document.getElementById('pub-map-reset').hidden = false;
+      if (!e.target.checked) { unified.clearCentros(); return; }
       if (!centros.length) {
-        side.innerHTML = `<div class="cpanel__empty"><h4>Centros cercanos</h4><p class="text-muted text-sm">Todavía no hay centros de acopio registrados.</p></div>`;
+        body.innerHTML = `<div class="cpanel__empty"><h4>Centros cercanos</h4><p class="text-muted text-sm">Todavía no hay centros de acopio registrados.</p></div>`;
         e.target.checked = false;
         return;
       }
-      side.innerHTML = `<div class="cpanel__empty"><div class="cpanel__empty-ico">📍</div><h4>Buscando tu ubicación…</h4><p class="text-muted text-sm">Autoriza el acceso a tu ubicación en el navegador.</p></div>`;
-      addCentrosCercanos(centros, (res) => {
-        if (res.error) { side.innerHTML = `<div class="cpanel__empty"><h4>Centros cercanos</h4><p class="text-muted text-sm">${esc(res.error)}</p></div>`; return; }
-        side.innerHTML = `<h4 class="cpanel__title">Centros de acopio más cercanos</h4>
+      body.innerHTML = `<div class="cpanel__empty"><div class="cpanel__empty-ico">◉</div><h4>Buscando tu ubicación…</h4><p class="text-muted text-sm">Autoriza el acceso a tu ubicación en el navegador.</p></div>`;
+      unified.addCentrosCercanos(centros, (res) => {
+        if (res.error) { body.innerHTML = `<div class="cpanel__empty"><h4>Centros cercanos</h4><p class="text-muted text-sm">${esc(res.error)}</p></div>`; return; }
+        body.innerHTML = `<h4 class="cpanel__title">Centros de acopio más cercanos</h4>
           <div class="near-list">${res.centros.map(ce => `<div class="near-item"><span>${esc(ce.nombre)}</span><span class="badge badge--blue">${ce.dist.toFixed(0)} km</span></div>`).join('')}</div>`;
-        enterStagger('#pub-map-side .near-item', { stagger: 0.05 });
+        enterStagger('#pub-map-body .near-item', { stagger: 0.05 });
       });
     });
     refreshScroll();
@@ -264,17 +239,29 @@ export async function mountPublico(root, scrollTo) {
     </svg>`;
   }
 
-  /* ---------- Panel del estado seleccionado ---------- */
+  /* ---------- Panel flotante del mapa unificado ---------- */
+  function renderPanelVacio() {
+    document.getElementById('pub-map-reset').hidden = true;
+    document.getElementById('pub-map-body').innerHTML = `
+      <div class="cpanel__empty">
+        <div class="cpanel__empty-ico">◈</div>
+        <h4>Explora el mapa</h4>
+        <p class="text-muted text-sm">Haz clic en un estado para ver sus comunidades, o en un punto para
+        conocer su detalle.</p>
+      </div>`;
+  }
+
   function renderStatePanel(nombreEstado, lista) {
-    const panel = document.getElementById('state-panel');
+    document.getElementById('pub-map-reset').hidden = false;
+    const body = document.getElementById('pub-map-body');
     if (!lista.length) {
-      panel.innerHTML = `
+      body.innerHTML = `
         <div class="cpanel__head"><div class="cpanel__title-wrap"><h4 class="cpanel__name">${esc(nombreEstado)}</h4></div></div>
         <p class="text-muted text-sm" style="margin-top:8px">Todavía no tenemos comunidades registradas en este estado.
         Tu apoyo puede ser el primer paso para llegar aquí.</p>`;
       return;
     }
-    panel.innerHTML = `
+    body.innerHTML = `
       <div class="cpanel__head">
         <div class="cpanel__title-wrap"><h4 class="cpanel__name">${esc(nombreEstado)}</h4></div>
         <span class="badge badge--emerald">${lista.length} comunidad${lista.length === 1 ? '' : 'es'}</span>
@@ -288,11 +275,8 @@ export async function mountPublico(root, scrollTo) {
     }).join('');
     lista.forEach(c => {
       list.querySelector(`[data-goto="${c.id}"]`)?.addEventListener('click', () => {
-        document.getElementById('sec-mapa')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(() => {
-          pubMapInstance && pubMapInstance.flyTo([c.lat, c.lng], 10);
-          renderCommunityPanel(c);
-        }, 450);
+        pubMapInstance && pubMapInstance.focusComunidad(c);
+        renderCommunityPanel(c);
       });
     });
     enterStagger('#state-comunidades .legend-row--btn', { stagger: 0.05 });
@@ -308,7 +292,8 @@ export async function mountPublico(root, scrollTo) {
   }
 
   function renderCommunityPanel(c, expanded = false) {
-    const side = document.getElementById('pub-map-side');
+    document.getElementById('pub-map-reset').hidden = false;
+    const side = document.getElementById('pub-map-body');
     const fotos = galeriaMap[c.id] || [];
     const shown = expanded ? fotos : fotos.slice(0, 4);
     const sev = c.score >= 80 ? { cls: 'crimson', lbl: 'Crítica' } : c.score >= 50 ? { cls: 'amber', lbl: 'Alta' } : { cls: 'emerald', lbl: 'Segura' };
@@ -353,7 +338,7 @@ export async function mountPublico(root, scrollTo) {
         <div class="dialog__footer"><button class="btn btn--emerald" data-close>Cerrar</button></div>`);
       document.querySelector('#app-dialog [data-close]').addEventListener('click', closeDialog);
     });
-    enterStagger('#pub-map-side .gauge, #pub-map-side .cpanel__block, #pub-map-side .cpanel__links', { stagger: 0.06 });
+    enterStagger('#pub-map-body .gauge, #pub-map-body .cpanel__block, #pub-map-body .cpanel__links', { stagger: 0.06 });
   }
 
   function renderNoticias(items) {

@@ -9,25 +9,21 @@
 
 import { api } from '../api.js';
 import { esc, scoreBadge, openDialog, closeDialog, skeleton } from './ui.js';
-import { buildPriorityMap, colorFor } from '../mapCommon.js';
+import { buildPriorityMap, colorFor } from '../mapCommon.js?v=20260831e';
 import { runViewAnimations, enterPanel, enterStagger, refreshScroll } from '../animations.js';
 
 export async function mountMapa(root) {
   root.innerHTML = `
-    <div class="grid-map">
-      <section class="card" style="padding:16px" id="map-card">
-        <div class="section-head">
-          <h3>Comunidades vulnerables</h3>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn--ghost btn--sm" id="btn-cercanos">📍 Centros cercanos</button>
-            <span class="badge badge--blue" id="map-count">—</span>
-          </div>
+    <div class="section-head" style="margin-bottom:10px">
+      <h3 style="font-size:17px">Comunidades vulnerables</h3>
+    </div>
+    <div class="map-hero map-hero--admin" id="map-hero">
+      <div id="map"><div class="map-skeleton">Cargando mapa…</div></div>
+      <aside class="map-float" id="legend-card">
+        <div class="map-float__bar">
+          <button class="btn btn--ghost btn--sm" id="btn-cercanos">◉ Centros cercanos</button>
+          <span class="badge badge--blue" id="map-count">—</span>
         </div>
-        <div id="map"><div class="map-skeleton">Cargando mapa…</div></div>
-      </section>
-
-      <aside class="card" id="legend-card">
-        <div class="section-head"><h3>Leyenda</h3></div>
         <div class="legend-list">
           <div class="legend-row"><span class="dot dot--crimson"></span> <strong>Crítica</strong> · 80–100</div>
           <div class="legend-row"><span class="dot dot--amber"></span> <strong>Alta / Media</strong> · 50–79</div>
@@ -35,7 +31,7 @@ export async function mountMapa(root) {
         </div>
         <div class="nav-divider"></div>
         <div id="side-panel">
-          <h4 style="font-size:14px;margin-bottom:10px">Prioridad más alta</h4>
+          <h4 style="font-size:13px;margin-bottom:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Prioridad más alta</h4>
           <div id="top-list" class="legend-list"></div>
         </div>
       </aside>
@@ -47,8 +43,7 @@ export async function mountMapa(root) {
   renderTopList(comunidades);
 
   runViewAnimations(root, () => {
-    enterPanel('#map-card');
-    enterPanel('#legend-card', { delay: 0.1 });
+    enterPanel('#map-hero');
     enterStagger('#top-list .legend-row', { delay: 0.25, stagger: 0.05 });
   });
 

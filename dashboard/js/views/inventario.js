@@ -68,7 +68,7 @@ export async function mountInventario(root) {
 
     <section class="card" id="inv-table-card" style="margin-top:18px">
       <div class="toolbar">
-        <input class="search" id="inv-search" type="search" placeholder="🔍 Buscar por tipo de bien o comunidad…" />
+        <input class="search" id="inv-search" type="search" placeholder="Buscar por tipo de bien o comunidad…" />
         <span class="badge badge--blue" id="inv-count">0 lotes</span>
       </div>
       <div class="table-wrap">
