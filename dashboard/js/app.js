@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { api, auth, DEMO_MODE, API_BASE } from './api.js?v=redesign3';
-import { router } from './router.js?v=redesign1';
+import { router } from './router.js?v=redesign6';
 // ?v= bumpeado durante el rediseño "Bitácora Náutica": el navegador
 // cacheaba estos módulos sin revalidar (http.server no manda
 // Cache-Control), así que un F5 normal seguía sirviendo la versión
@@ -15,9 +15,9 @@ import { router } from './router.js?v=redesign1';
 // de nuevo si vuelves a tocar alguna de estas vistas y no ves el
 // cambio reflejado.
 import { mountBienvenida } from './views/bienvenida.js?v=redesign3';
-import { mountPublico } from './views/publico.js?v=redesign6';
+import { mountPublico } from './views/publico.js?v=redesign11';
 import { mountInventario } from './views/inventario.js?v=redesign5';
-import { mountMapa } from './views/mapa.js?v=redesign3';
+import { mountMapa } from './views/mapa.js?v=redesign8';
 import { mountDespacho } from './views/despacho.js?v=redesign6';
 import { mountTransparencia } from './views/transparencia.js?v=redesign4';
 import { mountUsuarios } from './views/usuarios.js?v=redesign4';

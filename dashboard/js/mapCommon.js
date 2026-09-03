@@ -94,17 +94,34 @@ function boundsLookSane(map, bounds) {
   return spanX > size.x * 0.25 || spanY > size.y * 0.25;
 }
 
+// Devuelve una Promise que resuelve cuando la corrección (si hizo falta)
+// terminó de verdad -- no solo cuando se programó. buildUnifiedMap crea
+// los marcadores de comunidades justo después de encuadrar el mapa: si
+// esa creación corre ANTES de que el setTimeout de abajo corrija la
+// proyección, cada L.marker() calcula su posición contra un mapa que
+// todavía devuelve NaN, Leaflet le asigna un transform inválido
+// ("translate3d(NaNpx, NaNpx, 0)", que el navegador descarta a "none") y
+// como el marcador nunca se volvió a mover con viewreset/zoom después de
+// eso, se queda pegado en la esquina (0,0) del contenedor para siempre
+// -- ni el fitBounds correctivo ni los resize posteriores lo arreglan,
+// porque su _latlng interno nunca cambió, solo su proyección en pixeles
+// nació rota. Quien llama debe esperar esta Promise antes de crear
+// marcadores.
 function safeFitBounds(map, bounds, options) {
   map.fitBounds(bounds, options);
   if (!boundsLookSane(map, bounds)) {
     map.setView([23.6, -102.5], 5, { animate: false });
     // setTimeout, no requestAnimationFrame -- misma razón que en
     // waitForRealSize: no debe depender de que la pestaña esté visible.
-    setTimeout(() => {
-      map.invalidateSize();
-      if (boundsLookSane(map, bounds)) map.fitBounds(bounds, options);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        map.invalidateSize();
+        if (boundsLookSane(map, bounds)) map.fitBounds(bounds, options);
+        resolve();
+      });
     });
   }
+  return Promise.resolve();
 }
 
 function haversine(la1, lo1, la2, lo2) {
@@ -266,6 +283,16 @@ export async function buildUnifiedMap(mapEl, geojson, comunidades, opts = {}) {
   const withData = (name) => (comunidadesPorEstado.get(name) || []).length > 0;
 
   let selected = null;
+  // El geoJSON (con sus clicks ya conectados) se agrega al mapa de
+  // inmediato, pero el encuadre inicial sigue en vuelo hasta que el
+  // await de más abajo resuelve -- un clic justo en ese hueco dispara
+  // selectEstado()/flyToBounds() mientras el mapa todavía puede estar
+  // corrigiendo un zoom no finito, y esa animación entra en conflicto
+  // con la corrección: los marcadores terminan pegados en la esquina
+  // del contenedor sin importar su lat/lng real (reproducido con un
+  // clic sintético en el primer path.leaflet-interactive disponible).
+  // Se ignoran los clics hasta que `ready` sea true.
+  let ready = false;
   function stateStyle(feature) {
     const name = feature.properties.name;
     const isSel = selected === name;
@@ -300,7 +327,12 @@ export async function buildUnifiedMap(mapEl, geojson, comunidades, opts = {}) {
   // un solo punto. Una vez el zoom queda así, ni invalidateSize() ni
   // un fitBounds posterior lo arreglan solos. safeFitBounds fuerza un
   // centro/zoom de respaldo si eso llega a pasar.
-  safeFitBounds(map, stateLayer.getBounds(), FIT_PAD);
+  // Se espera a que la corrección (si hizo falta) termine del todo antes
+  // de crear los marcadores de abajo -- ver el comentario de
+  // safeFitBounds: crearlos mientras el mapa todavía proyecta NaN los
+  // deja pegados en la esquina (0,0) para siempre, sin importar qué
+  // tan bien quede encuadrado el mapa después.
+  await safeFitBounds(map, stateLayer.getBounds(), FIT_PAD);
 
   // Puntos de comunidades, siempre visibles encima del choropleth.
   const markerByComunidad = new Map();
@@ -313,8 +345,28 @@ export async function buildUnifiedMap(mapEl, geojson, comunidades, opts = {}) {
     });
     markerByComunidad.set(c.id, marker);
   });
+  // Bug real, verificado con la instancia de Leaflet en vivo: aun con
+  // map.getZoom()/getSize() ya correctos en este punto (el await de
+  // arriba ya resolvió), un marcador creado aquí puede quedar con
+  // transform:none -- Leaflet calculó bien su _point pero nunca llamó
+  // a setPosition() sobre el elemento. map.latLngToLayerPoint(latlng)
+  // devuelve el pixel correcto si se le pregunta a mano en cualquier
+  // momento posterior, y marker.setLatLng(marker.getLatLng()) lo repara
+  // al instante -- pero UN solo setTimeout(fn) (siguiente tick) no
+  // alcanzó en la reproducción real: el retraso interno de Leaflet no
+  // tiene una duración fija conocida. En vez de adivinar un número,
+  // varios intentos escalonados (reposicionar un marcador ya correcto
+  // no cuesta nada ni se nota) hasta que quede bien.
+  [0, 100, 400, 1000, 2500].forEach(delay => {
+    setTimeout(() => { markerByComunidad.forEach(m => m.setLatLng(m.getLatLng())); }, delay);
+  });
+  // A partir de aquí el encuadre inicial ya terminó de verdad -- recién
+  // ahora es seguro dejar que un clic dispare flyToBounds() sin arriesgar
+  // la corrupción descrita arriba en la declaración de `ready`.
+  ready = true;
 
   function selectEstado(name) {
+    if (!ready) return;
     selected = name;
     stateLayer.eachLayer(lyr => lyr.setStyle(stateStyle(lyr.feature)));
     const lista = comunidadesPorEstado.get(name) || [];
@@ -374,6 +426,17 @@ export async function buildUnifiedMap(mapEl, geojson, comunidades, opts = {}) {
       // un fitBounds/flyTo anterior todavía en vuelo.
       if (bounds.isValid()) safeFitBounds(map, bounds, { ...FIT_PAD, animate: false });
     }
+    // Red de seguridad final: si los marcadores nacieron con una
+    // proyección rota (el contenedor todavía medía 0x0 cuando
+    // buildUnifiedMap los creó -- puede pasar incluso después de esperar
+    // el fitBounds inicial, bajo carga real), quedan pegados en la
+    // esquina para siempre porque Leaflet nunca vuelve a proyectarlos a
+    // menos que se les avise explícitamente. setLatLng con su propia
+    // lat/lng (que SIEMPRE fue válida, solo la proyección nació mal) es
+    // la forma pública de forzar ese recálculo. refit() es exactamente
+    // el momento en que ya sabemos que el contenedor tiene tamaño real,
+    // así que es seguro y barato hacerlo aquí cada vez.
+    markerByComunidad.forEach(m => m.setLatLng(m.getLatLng()));
   };
   refit();
   if (typeof ResizeObserver !== 'undefined') {
