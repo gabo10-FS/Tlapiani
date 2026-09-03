@@ -32,10 +32,15 @@ entrada** o la verificación fallará y marcará un lote íntegro como manipulad
 | Salida | hex en minúsculas, 64 caracteres (`hexdigest()`) |
 
 > **Ojo con el timestamp.** El backend calcula el sello a partir de un timestamp
-> truncado a segundos (`formatear_timestamp()`), pero **ningún campo de respuesta
-> de la API devuelve esa cadena exacta** — ver §2. Un cliente que reformatee el
+> truncado a segundos (`formatear_timestamp()`). Desde la migración `0003`,
+> **TODOS** los campos de fecha de las respuestas de la API usan exactamente ese
+> mismo formato (`%Y-%m-%dT%H:%M:%SZ`, UTC, sin microsegundos) — es el tipo
+> `app/schemas/_tiempo.py::FechaUtcZ`, y `app/core/time.py` es la fuente única.
+> En particular `RegistroLoteResponse.timestamp_creacion` y el `timestamp` del
+> movimiento `"Creado"` en `GET /donaciones/historial/{lote_id}` **sí** devuelven
+> la cadena exacta que entró al sello. Aun así, un cliente que reformatee el
 > timestamp por su cuenta (agregando milisegundos, o usando `+00:00` en vez de
-> `Z`) generará un hash distinto.
+> `Z`) generará un hash distinto — hay que pasarlo tal cual llega.
 
 ### Vector de prueba canónico
 
@@ -99,24 +104,17 @@ el cliente envió con la respuesta que recibió**, no imprimiendo sólo la respu
 | `tipo_bien` | request propio |
 | `cantidad_kg` | request propio |
 | `comunidad_destino_id` | request propio |
-| `timestamp_creacion` | respuesta (`timestamp_creacion`) — **ver nota** |
+| `timestamp_creacion` | respuesta (`timestamp_creacion`) — se pasa tal cual |
 | `hash_sha256` | respuesta (`hash_sha256`) |
 
 ### Nota sobre el `timestamp_creacion` en el QR
 
-`timestamp_creacion` de `RegistroLoteResponse` es un `datetime` con microsegundos
-(viene de `timestamp_utc()` = `datetime.now(timezone.utc)`). Pydantic lo serializa
-como `2026-08-31T14:23:01.123456Z`. Pero el sello se calculó con ese mismo instante
-**truncado a segundos** (`2026-08-31T14:23:01Z`).
-
-⇒ El productor del QR **debe truncar el timestamp a segundos** (`%Y-%m-%dT%H:%M:%SZ`)
-antes de meterlo al QR. Si copia el valor crudo de la respuesta, el hash que
-recalcule el móvil no coincidirá nunca y todo lote se marcará como manipulado.
-
-Opción de diseño a considerar (no implementada): que `RegistroLoteResponse`
-devuelva el timestamp ya formateado como string con `formatear_timestamp()`, para
-que no haya dos representaciones del mismo instante y el cliente no tenga que
-saber que debe truncar.
+Desde la migración `0003`, `timestamp_creacion` de `RegistroLoteResponse` ya viene
+**truncado a segundos y con sufijo `Z`** (`2026-08-31T14:23:01Z`) — es el mismo
+instante exacto con el que se calculó el sello. El productor del QR lo copia
+**tal cual**, sin reformatear. (Antes venía con microsegundos y había que truncarlo
+a mano; eso ya no aplica — `app/core/time.py` + `app/schemas/_tiempo.py::FechaUtcZ`
+unificaron el formato de todas las fechas de la API.)
 
 ---
 

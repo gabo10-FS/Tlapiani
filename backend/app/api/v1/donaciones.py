@@ -1,25 +1,77 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.deps import require_roles
+from app.api.v1.deps import get_current_usuario, require_roles
 from app.db.session import get_db
 from app.models.comunidad import Comunidad
 from app.models.envio_bitacora import EnvioBitacora
-from app.models.lote import Lote
+from app.models.lote import ESTADOS_VALIDOS, Lote
 from app.models.usuario import Usuario
 from app.schemas.lote import (
     DespacharLotePayload,
     DespacharLoteResponse,
     HistorialLoteResponse,
+    LoteResumenResponse,
     MovimientoBitacora,
     RegistroLotePayload,
     RegistroLoteResponse,
 )
+from app.core.time import ahora_utc
 from app.services.integridad_service import generar_sello, siguiente_lote_id
-from app.services.priorizacion_service import timestamp_utc
 
 router = APIRouter(prefix="/donaciones", tags=["donaciones"])
+
+
+@router.get("", response_model=list[LoteResumenResponse])
+async def listar_lotes(
+    db: AsyncSession = Depends(get_db),
+    _actor: Usuario = Depends(get_current_usuario),
+    estado: str | None = Query(
+        default=None,
+        description="Filtra por estado del lote (p. ej. 'Creado' para el selector de despacho).",
+    ),
+) -> list[LoteResumenResponse]:
+    """Listado de lotes para el dashboard (inventario + selector de despacho).
+
+    Requiere sesión (cualquier rol) — no es dato público: el detalle público
+    lote a lote se sirve por `GET /donaciones/historial/{lote_id}`. Ordena por
+    fecha de creación descendente. Sin paginación por ahora: el volumen esperado
+    (lotes de un operativo) cabe holgado en una sola respuesta, igual que
+    `GET /usuarios` y `GET /centros-acopio`.
+    """
+    if estado is not None and estado not in ESTADOS_VALIDOS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"estado inválido; use uno de {list(ESTADOS_VALIDOS)}",
+        )
+
+    consulta = (
+        select(Lote, Comunidad)
+        .join(Comunidad, Lote.comunidad_destino_id == Comunidad.id)
+        .order_by(Lote.created_at.desc())
+    )
+    if estado is not None:
+        consulta = consulta.where(Lote.estado_actual == estado)
+
+    filas = await db.execute(consulta)
+    return [
+        LoteResumenResponse(
+            lote_id=lote.id,
+            tipo_bien=lote.tipo_bien,
+            cantidad_kg=lote.cantidad_kg,
+            origen_acopio=lote.origen_acopio,
+            comunidad_destino_id=lote.comunidad_destino_id,
+            comunidad_destino_nombre=comunidad.nombre,
+            comunidad_destino_estado=comunidad.estado,
+            estado_actual=lote.estado_actual,
+            hash_sha256=lote.hash_sha256,
+            transportista_id=lote.transportista_id,
+            created_at=lote.created_at,
+            despachado_en=lote.despachado_en,
+        )
+        for lote, comunidad in filas.all()
+    ]
 
 
 @router.post("/registrar", response_model=RegistroLoteResponse, status_code=status.HTTP_201_CREATED)
@@ -32,12 +84,10 @@ async def registrar_lote(
     if comunidad is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comunidad de destino no encontrada")
 
-    # Segundos enteros (sin microsegundos): generar_sello ya trunca el timestamp a
-    # segundos, y created_at debe guardar EXACTAMENTE ese mismo instante para que
-    # sync_service pueda recalcular el sello y verificarlo (defensa en profundidad).
-    # Truncar aquí evita depender de si el motor de BD redondea o trunca los
-    # microsegundos al persistir un DATETIME sin precisión fraccionaria.
-    ahora = timestamp_utc().replace(microsecond=0)
+    # ahora_utc() ya viene truncado a segundos: created_at debe guardar EXACTAMENTE
+    # el instante que entra a generar_sello para que sync_service pueda recalcular
+    # el sello y verificarlo (defensa en profundidad). Ver app/core/time.py.
+    ahora = ahora_utc()
     lote_id = await siguiente_lote_id(db, ahora.year)
     sello = generar_sello(lote_id, payload.tipo_bien, payload.cantidad_kg, payload.comunidad_destino_id, ahora)
 
@@ -79,7 +129,7 @@ async def despachar_lote(
     if transportista is None or transportista.rol != "Transportista":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="transportista_id inválido")
 
-    ahora = timestamp_utc()
+    ahora = ahora_utc()
     lote.estado_actual = "En Ruta"
     lote.transportista_id = payload.transportista_id
     lote.despachado_en = ahora

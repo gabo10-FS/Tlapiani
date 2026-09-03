@@ -4,7 +4,6 @@ SU = (alpha * IM) + (beta * IE) + (gamma * CE), con alpha + beta + gamma = 1.
 Pesos configurables vía PRIORIDAD_ALPHA/BETA/GAMMA (backend/.env).
 """
 
-from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -73,7 +72,3 @@ async def recalcular_todas(db: AsyncSession) -> int:
         _aplicar_score(comunidad)
     await db.commit()
     return len(comunidades)
-
-
-def timestamp_utc() -> datetime:
-    return datetime.now(timezone.utc)

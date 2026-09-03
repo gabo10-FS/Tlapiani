@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.time import ahora_utc
 from app.db.base import Base
 
 ESTADOS_VALIDOS = ("Creado", "En Ruta", "Entregado Exitosamente", "Alerta de Manipulación")
@@ -24,7 +25,7 @@ class Lote(Base):
     transportista_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     despachado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=ahora_utc)
 
 
 class LoteSecuencia(Base):

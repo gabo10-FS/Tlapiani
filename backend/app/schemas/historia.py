@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas._tiempo import FechaUtcZ
 
 
 class HistoriaPayload(BaseModel):
@@ -24,4 +24,4 @@ class HistoriaResponse(BaseModel):
     autor: str
     impacto: str
     img_url: str | None
-    created_at: datetime
+    created_at: FechaUtcZ

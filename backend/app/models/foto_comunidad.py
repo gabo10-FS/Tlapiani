@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.time import ahora_utc
 from app.db.base import Base
 
 
@@ -22,4 +23,4 @@ class FotoComunidad(Base):
     url: Mapped[str] = mapped_column(String(255), nullable=False)
     caption: Mapped[str] = mapped_column(String(255), nullable=False)
     subido_por_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=ahora_utc)

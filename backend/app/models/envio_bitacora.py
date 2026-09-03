@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.time import ahora_utc
 from app.db.base import Base
 
 
@@ -22,4 +23,4 @@ class EnvioBitacora(Base):
     timestamp_entrega: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     receptor_firma_id: Mapped[str] = mapped_column(String(50), nullable=False)
     dispositivo_uuid: Mapped[str] = mapped_column(String(100), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=ahora_utc)

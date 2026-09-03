@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Numeric, String, func
+from sqlalchemy import DateTime, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.time import ahora_utc
 from app.db.base import Base
 
 
@@ -24,4 +25,4 @@ class CentroAcopio(Base):
     latitud: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
     longitud: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
     capacidad: Mapped[str] = mapped_column(String(100), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=ahora_utc)

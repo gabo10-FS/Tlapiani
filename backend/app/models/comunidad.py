@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Numeric, String, func
+from sqlalchemy import DateTime, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.time import ahora_utc
 from app.db.base import Base
 
 
@@ -29,5 +30,5 @@ class Comunidad(Base):
     alerta_motivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime, default=ahora_utc, onupdate=ahora_utc
     )

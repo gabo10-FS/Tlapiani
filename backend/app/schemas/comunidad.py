@@ -1,7 +1,8 @@
-from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas._tiempo import FechaUtcZ
 
 
 class Coordenadas(BaseModel):
@@ -31,7 +32,7 @@ class AlertaEmergenciaPayload(BaseModel):
 
 class RecalculoResponse(BaseModel):
     comunidades_actualizadas: int
-    timestamp: datetime
+    timestamp: FechaUtcZ
 
 
 class ComunidadResponse(BaseModel):
@@ -44,4 +45,4 @@ class ComunidadResponse(BaseModel):
     clasificacion: str
     alerta_activa: bool
     alerta_motivo: str | None
-    updated_at: datetime
+    updated_at: FechaUtcZ

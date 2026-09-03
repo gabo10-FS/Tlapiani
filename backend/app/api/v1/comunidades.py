@@ -13,7 +13,8 @@ from app.schemas.comunidad import (
     Coordenadas,
     RecalculoResponse,
 )
-from app.services.priorizacion_service import recalcular_comunidad, recalcular_todas, timestamp_utc
+from app.core.time import ahora_utc
+from app.services.priorizacion_service import recalcular_comunidad, recalcular_todas
 
 router = APIRouter(prefix="/comunidades", tags=["comunidades"])
 
@@ -93,4 +94,4 @@ async def recalcular_scores(
     _admin: Usuario = Depends(require_roles("Administrador")),
 ) -> RecalculoResponse:
     total = await recalcular_todas(db)
-    return RecalculoResponse(comunidades_actualizadas=total, timestamp=timestamp_utc())
+    return RecalculoResponse(comunidades_actualizadas=total, timestamp=ahora_utc())

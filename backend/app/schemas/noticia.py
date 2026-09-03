@@ -1,6 +1,8 @@
-from datetime import date, datetime
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas._tiempo import FechaUtcZ
 
 
 class NoticiaPayload(BaseModel):
@@ -26,4 +28,4 @@ class NoticiaResponse(BaseModel):
     tipo: str
     prioridad: int
     img_url: str | None
-    created_at: datetime
+    created_at: FechaUtcZ

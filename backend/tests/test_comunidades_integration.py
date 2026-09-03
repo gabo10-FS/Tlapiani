@@ -1,5 +1,7 @@
 """Integración HTTP real para /api/v1/comunidades/*. Ver tests/conftest.py."""
 
+import re
+
 import pytest
 
 pytestmark = pytest.mark.asyncio
@@ -123,7 +125,8 @@ async def test_recalcular_como_administrador_devuelve_200_y_recalcula_de_verdad(
     assert resp.status_code == 200
     body = resp.json()
     assert body["comunidades_actualizadas"] == 1  # solo seed_comunidad existe en este test
-    assert "timestamp" in body
+    # formato de fecha unificado: UTC, segundos enteros, sufijo Z (ver app/core/time.py)
+    assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", body["timestamp"])
 
     despues = await client.get(
         "/api/v1/comunidades/prioridad", headers={"Authorization": f"Bearer {token}"}

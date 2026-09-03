@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas._tiempo import FechaUtcZ
 
 
 class FotoComunidadResponse(BaseModel):
@@ -10,4 +10,4 @@ class FotoComunidadResponse(BaseModel):
     comunidad_id: int
     url: str
     caption: str
-    created_at: datetime
+    created_at: FechaUtcZ

@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 from app.models.usuario import ROLES_VALIDOS
+from app.schemas._tiempo import FechaUtcZ
 
 
 class UsuarioRegistroPayload(BaseModel):
@@ -34,4 +33,4 @@ class UsuarioResponse(BaseModel):
     email: EmailStr
     rol: str
     activo: bool
-    created_at: datetime
+    created_at: FechaUtcZ
