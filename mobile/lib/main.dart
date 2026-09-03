@@ -4,6 +4,7 @@ import 'screens/home_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/validation_result_screen.dart';
 import 'screens/history_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +24,7 @@ class TlapianiApp extends StatefulWidget {
 }
 
 class _TlapianiAppState extends State<TlapianiApp> {
-  ThemeMode _themeMode = ThemeMode.dark; // Tema por defecto: Oscuro
+  ThemeMode _themeMode = ThemeMode.dark; // Tema por defecto: Oscuro (igual que el Dashboard)
 
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
@@ -40,61 +41,11 @@ class _TlapianiAppState extends State<TlapianiApp> {
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
       
-      // ☀️ TEMA CLARO PREMIUM
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF3F4F6), // Gris claro
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFF10B981), // Verde esmeralda
-          secondary: Colors.amber,
-          surface: Colors.white,
-          error: Color(0xFFD32F2F),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF1F2937),
-          elevation: 1,
-          centerTitle: true,
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-        ),
-        dividerColor: const Color(0xFFE5E7EB),
-      ),
+      // ☀️ TEMA CLARO (Sincronizado con variables CSS del Dashboard)
+      theme: AppTheme.lightTheme,
 
-      // 🌙 TEMA OSCURO PREMIUM
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F1115), // Negro azulado
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF10B981),
-          secondary: Colors.amber,
-          surface: Color(0xFF161920),
-          error: Color(0xFFD32F2F),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF161920),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF161920),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF2C3240)),
-          ),
-        ),
-        dividerColor: const Color(0xFF2C3240),
-      ),
+      // 🌙 TEMA OSCURO (Sincronizado con variables CSS del Dashboard)
+      darkTheme: AppTheme.darkTheme,
       
       initialRoute: '/',
       routes: {

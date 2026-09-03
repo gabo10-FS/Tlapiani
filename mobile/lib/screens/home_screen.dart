@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/database_service.dart';
-import '../main.dart'; // Para acceder a TlapianiApp
+import '../services/api_service.dart';
+import '../main.dart';
+import '../theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,12 +26,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshPendingCount();
     _checkInitialConnectivity();
 
-    // 1. Escuchar automáticamente los cambios de conectividad (Eventos del Sistema)
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
       _updateConnectionStatus(results);
     });
 
-    // 2. Temporizador periódico cada 5 segundos como redundancia física (evita bloqueos de ahorro de batería)
     _connectivityTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _checkInitialConnectivity();
     });
@@ -42,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  /// Verifica si el dispositivo realmente puede resolver DNS y tiene salida a internet.
   Future<bool> _hasInternetAccess() async {
     try {
       final result = await InternetAddress.lookup('google.com')
@@ -57,20 +56,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Verifica la conectividad al arrancar o de forma periódica.
   Future<void> _checkInitialConnectivity() async {
     final List<ConnectivityResult> results = await Connectivity().checkConnectivity();
     await _updateConnectionStatus(results);
   }
 
-  /// Actualiza el estado reactivo de internet comprobando interfaces físicas y acceso real por DNS.
   Future<void> _updateConnectionStatus(List<ConnectivityResult> results) async {
     final bool hasInterface = results.contains(ConnectivityResult.wifi) ||
                               results.contains(ConnectivityResult.mobile) ||
                               results.contains(ConnectivityResult.ethernet) ||
                               results.contains(ConnectivityResult.vpn);
     
-    // Si hay interfaz de red, hacemos un ping real para confirmar acceso a internet
     bool hasInternet = false;
     if (hasInterface) {
       hasInternet = await _hasInternetAccess();
@@ -86,11 +82,11 @@ class _HomeScreenState extends State<HomeScreen> {
           SnackBar(
             content: Text(
               _isOnline 
-                  ? 'Conexión a internet restablecida' 
-                  : 'Sin conexión a internet. Cambiando a modo local offline.',
+                  ? 'Conexión restablecida con el servidor' 
+                  : 'Modo Offline activado. Validaciones guardadas en SQLite local.',
             ),
             duration: const Duration(seconds: 3),
-            backgroundColor: _isOnline ? const Color(0xFF10B981) : Colors.amber.shade800,
+            backgroundColor: _isOnline ? AppTheme.accentEmerald : AppTheme.accentAmber,
           ),
         );
       }
@@ -105,12 +101,187 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// Diálogo para autenticarse como Transportista / Administrador
+  Future<bool> _showLoginDialog() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg = isDark ? AppTheme.darkBgSecondary : AppTheme.lightBgSecondary;
+
+    final emailController = TextEditingController(text: ApiService.instance.userEmail ?? '');
+    final passController = TextEditingController();
+    bool loading = false;
+    String? errorMessage;
+
+    final loggedIn = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: const [
+              BrandMark(size: 24),
+              SizedBox(width: 10),
+              Text('Iniciar Sesión', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Para sincronizar con MariaDB se requiere una cuenta autorizada (Transportista o Administrador).',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo electrónico',
+                    prefixIcon: Icon(Icons.email_outlined, size: 20),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Contraseña',
+                    prefixIcon: Icon(Icons.lock_outline, size: 20),
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errorMessage!,
+                    style: const TextStyle(color: AppTheme.accentCrimson, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: loading ? null : () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: loading
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        loading = true;
+                        errorMessage = null;
+                      });
+                      try {
+                        final ok = await ApiService.instance.login(
+                          emailController.text,
+                          passController.text,
+                        );
+                        if (ok && ctx.mounted) {
+                          Navigator.of(ctx).pop(true);
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          loading = false;
+                          errorMessage = e.toString().replaceAll('Exception: ', '');
+                        });
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentEmerald,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+              ),
+              child: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Entrar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return loggedIn == true;
+  }
+
+  /// Diálogo para configurar la URL del Servidor Backend
+  void _showServerConfigDialog() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg = isDark ? AppTheme.darkBgSecondary : AppTheme.lightBgSecondary;
+    final urlController = TextEditingController(text: ApiService.instance.baseUrl);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Configurar Servidor API', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Ingresa la URL pública o local del backend (FastAPI):',
+              style: TextStyle(fontSize: 12.5),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: 'URL Base',
+                hintText: 'https://tu-servidor.com/api/v1',
+                prefixIcon: Icon(Icons.dns_outlined, size: 20),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newUrl = urlController.text.trim();
+              if (newUrl.isNotEmpty) {
+                ApiService.instance.setBaseUrl(newUrl);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Servidor configurado: $newUrl'),
+                    backgroundColor: AppTheme.accentBlue,
+                  ),
+                );
+              }
+              Navigator.of(ctx).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentBlue,
+              foregroundColor: Colors.white,
+              shape: const StadiumBorder(),
+            ),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Sincronización real con el backend mediante API REST
   Future<void> _syncData() async {
     if (!_isOnline) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No hay conexión de red activa. No es posible sincronizar con el servidor.'),
-          backgroundColor: Colors.redAccent,
+          content: Text('Sin conexión de red. La sincronización requiere acceso a internet.'),
+          backgroundColor: AppTheme.accentCrimson,
         ),
       );
       return;
@@ -120,121 +291,178 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No hay registros locales pendientes de sincronizar.'),
-          backgroundColor: Color(0xFF10B981),
+          backgroundColor: AppTheme.accentEmerald,
         ),
       );
       return;
     }
 
-    // Mostrar loader de sincronización
+    // Si no está autenticado, solicitar inicio de sesión
+    if (!ApiService.instance.isAuthenticated) {
+      final loggedIn = await _showLoginDialog();
+      if (!loggedIn) return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF10B981)),
+        child: CircularProgressIndicator(color: AppTheme.accentEmerald),
       ),
     );
 
-    // Simular llamada de subida a la API y consolidación en MariaDB
-    await Future.delayed(const Duration(seconds: 2));
-
     final db = DatabaseService.instance;
-    await db.clearAll(); // Borramos localmente tras sincronizar
-    await _refreshPendingCount();
+    final entregas = await db.readAllEntregas();
+
+    // Llamada HTTP real al backend
+    final result = await ApiService.instance.sincronizarEntregas(entregas);
 
     if (mounted) {
-      Navigator.of(context).pop(); // Quitar loader
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sincronización diferida consolidada exitosamente en MariaDB.'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
+      Navigator.of(context).pop(); // Cerrar loader
+
+      if (result.success) {
+        // Únicamente si el backend confirmó 200 OK, vaciamos la base de datos local
+        await db.clearAll();
+        await _refreshPendingCount();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${result.mensaje} (${result.registrosProcesados} procesados, ${result.alertasDetectadas} alertas).',
+            ),
+            backgroundColor: AppTheme.accentEmerald,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        // En caso de error, los datos se preservan íntegros en SQLite
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al sincronizar: ${result.mensaje}'),
+            backgroundColor: AppTheme.accentCrimson,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = TlapianiApp.of(context).isDarkMode;
+    final isDark = theme.brightness == Brightness.dark;
+    final textMain = isDark ? AppTheme.darkTextMain : AppTheme.lightTextMain;
+    final textMuted = isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted;
+    final cardBg = isDark ? AppTheme.darkBgSecondary : AppTheme.lightBgSecondary;
+    final glassBorder = isDark ? AppTheme.darkGlassBorder : AppTheme.lightGlassBorder;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'TLAPIANI',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: theme.appBarTheme.foregroundColor,
-          ),
+        title: Row(
+          children: [
+            const BrandMark(size: 28),
+            const SizedBox(width: 10),
+            Text(
+              'TLAPIANI',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                letterSpacing: 1.5,
+                color: textMain,
+              ),
+            ),
+          ],
         ),
         actions: [
-          // Icono del estado de conexión (Automático)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Icon(
-              _isOnline ? Icons.wifi : Icons.wifi_off,
-              color: _isOnline ? const Color(0xFF10B981) : Colors.amber,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: StatusBadge(
+              label: _isOnline ? 'Online' : 'Offline',
+              status: _isOnline ? BadgeStatus.emerald : BadgeStatus.amber,
             ),
           ),
-          // Botón para alternar Tema Claro / Tema Oscuro
+          // Botón para configurar la URL del servidor
+          IconButton(
+            icon: Icon(Icons.settings_outlined, color: textMuted, size: 20),
+            onPressed: _showServerConfigDialog,
+            tooltip: 'Configurar servidor',
+          ),
+          // Selector de tema Claro / Oscuro
           IconButton(
             icon: Icon(
-              isDark ? Icons.light_mode : Icons.dark_mode,
-              color: theme.appBarTheme.foregroundColor,
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              color: textMuted,
+              size: 20,
             ),
             onPressed: () {
               TlapianiApp.of(context).toggleTheme();
             },
-            tooltip: 'Cambiar Tema',
+            tooltip: 'Alternar Tema',
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 14.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Banner de estado de red automático
+              // Banner de red estilizado como tarjeta del Dashboard
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _isOnline 
-                      ? const Color(0xFF10B981).withOpacity(0.1) 
-                      : Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: _isOnline ? const Color(0xFF10B981) : Colors.amber,
+                    color: _isOnline
+                        ? AppTheme.accentEmerald.withOpacity(0.25)
+                        : AppTheme.accentAmber.withOpacity(0.25),
                     width: 1,
                   ),
+                  boxShadow: const [AppTheme.shadowSoft],
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      _isOnline ? Icons.cloud_done : Icons.cloud_off,
-                      color: _isOnline ? const Color(0xFF10B981) : Colors.amber,
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: _isOnline
+                            ? AppTheme.accentEmerald.withOpacity(0.12)
+                            : AppTheme.accentAmber.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _isOnline ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                        color: _isOnline ? AppTheme.accentEmerald : AppTheme.accentAmber,
+                        size: 22,
+                      ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isOnline ? 'CONECTADO AL SERVIDOR' : 'MODO OFFLINE (LOCAL)',
+                            _isOnline ? 'CONECTADO AL SISTEMA CENTRAL' : 'MODO LOCAL DESCONECTADO',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                               fontSize: 12,
-                              color: _isOnline ? const Color(0xFF10B981) : Colors.amber,
+                              letterSpacing: 0.5,
+                              color: _isOnline ? AppTheme.accentEmerald : AppTheme.accentAmber,
                             ),
                           ),
+                          const SizedBox(height: 3),
                           Text(
                             _isOnline 
-                                ? 'La red se detectó automáticamente. Listo para sincronizar.' 
-                                : 'Sin red. Las validaciones se guardarán localmente.',
+                                ? (ApiService.instance.isAuthenticated
+                                    ? 'Sesión iniciada (${ApiService.instance.userEmail}). Listo para sincronizar.'
+                                    : 'En línea. Pulsa sincronizar para iniciar sesión.')
+                                : 'Sin internet. Las entregas se firman y guardan en SQLite.',
                             style: TextStyle(
-                              fontSize: 11,
-                              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                              fontSize: 12,
+                              color: textMuted,
                             ),
                           ),
                         ],
@@ -243,83 +471,90 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 18),
 
-              // Indicador de pendientes
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Entregas Pendientes',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: theme.textTheme.bodyLarge?.color,
-                            ),
+              // Tarjeta de Estadísticas (.stat del Dashboard)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: glassBorder, width: 1),
+                  boxShadow: const [AppTheme.shadowSoft],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ENTREGAS PENDIENTES',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.8,
+                            color: textMuted,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '$_pendingCount registros locales en SQLite',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _pendingCount > 0 
-                              ? Colors.amber.withOpacity(0.2) 
-                              : theme.dividerColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
+                        const SizedBox(height: 6),
+                        Text(
                           '$_pendingCount',
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: _pendingCount > 0 ? Colors.amber : Colors.grey,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                            color: textMain,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Almacenadas en SQLite local',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    StatusBadge(
+                      label: _pendingCount > 0 ? 'Por sincronizar' : 'Al día',
+                      status: _pendingCount > 0 ? BadgeStatus.amber : BadgeStatus.emerald,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 18),
 
-              // Botones principales (Tarjetas Premium adaptables al tema)
+              // Acciones principales
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
                   children: [
-                    _buildMenuCard(
-                      context: context,
+                    _buildActionCard(
                       title: 'Escanear QR',
                       subtitle: 'Validar Integridad',
-                      icon: Icons.qr_code_scanner,
-                      iconColor: const Color(0xFF10B981),
+                      icon: Icons.qr_code_scanner_rounded,
+                      accentColor: AppTheme.accentEmerald,
+                      cardBg: cardBg,
+                      glassBorder: glassBorder,
+                      textMain: textMain,
+                      textMuted: textMuted,
                       onTap: () async {
                         await Navigator.of(context).pushNamed('/scanner');
                         _refreshPendingCount();
                       },
                     ),
-                    _buildMenuCard(
-                      context: context,
+                    _buildActionCard(
                       title: 'Historial',
-                      subtitle: 'Registros locales',
-                      icon: Icons.history,
-                      iconColor: Colors.blueAccent,
+                      subtitle: 'Bitácora Local',
+                      icon: Icons.history_rounded,
+                      accentColor: AppTheme.accentBlue,
+                      cardBg: cardBg,
+                      glassBorder: glassBorder,
+                      textMain: textMain,
+                      textMuted: textMuted,
                       onTap: () async {
                         await Navigator.of(context).pushNamed('/history');
                         _refreshPendingCount();
@@ -329,25 +564,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // Botón de sincronizar
-              ElevatedButton.icon(
-                onPressed: _syncData,
-                icon: const Icon(Icons.sync),
-                label: const Text('SINCRONIZAR AHORA'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+              // Botón Pill "SINCRONIZAR AHORA"
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [AppTheme.glowEmerald],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: _syncData,
+                  icon: const Icon(Icons.sync_rounded, size: 20),
+                  label: const Text('SINCRONIZAR AHORA'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentEmerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -355,42 +595,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMenuCard({
-    required BuildContext context,
+  Widget _buildActionCard({
     required String title,
     required String subtitle,
     required IconData icon,
-    required Color iconColor,
+    required Color accentColor,
+    required Color cardBg,
+    required Color glassBorder,
+    required Color textMain,
+    required Color textMuted,
     required VoidCallback onTap,
   }) {
-    final theme = Theme.of(context);
-
     return Material(
-      color: theme.cardTheme.color,
-      borderRadius: BorderRadius.circular(16),
+      color: cardBg,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.dividerColor, width: 1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: glassBorder, width: 1),
+            boxShadow: const [AppTheme.shadowSoft],
           ),
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(18.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  color: accentColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   icon,
-                  color: iconColor,
-                  size: 28,
+                  color: accentColor,
+                  size: 26,
                 ),
               ),
               Column(
@@ -400,16 +642,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.w700,
+                      color: textMain,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 11,
-                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
+                      fontSize: 12,
+                      color: textMuted,
                     ),
                   ),
                 ],

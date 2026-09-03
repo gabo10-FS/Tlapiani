@@ -15,7 +15,7 @@ void main() {
       );
 
       // Usando el formato oficial unificado con delimitador '|' y 2 decimales fijos
-      final hashCalculado = CryptographyService.calcularHash(lote, delimiter: '|', decimalPlaces: 2);
+      final hashCalculado = CryptographyService.calcularHash(lote);
       
       expect(hashCalculado, '3191e1598169e91c0fef7bf73fcab3d7978d57eb123d1d199a6092b57b737fd1');
       expect(hashCalculado.length, 64);

@@ -3,15 +3,12 @@ import 'package:crypto/crypto.dart';
 import '../models/lote_model.dart';
 
 class CryptographyService {
-  /// Calcula el hash SHA-256 de los metadatos de un lote.
+  /// Calcula el hash SHA-256 de los metadatos de un lote según la especificación oficial del backend.
   /// 
-  /// Concatena los siguientes campos: ID_Lote + Tipo_Bien + Cantidad + Destino + Timestamp.
-  /// Admite un [delimiter] opcional (por defecto vacío, p.ej. '', o '|').
-  /// Utiliza un formateador para la cantidad (`cantidadKg`) con 2 decimales por defecto y
-  /// delimitador pipe (|) para asegurar la compatibilidad con el backend.
-  static String calcularHash(Lote lote, {String delimiter = '|', int decimalPlaces = 2}) {
-    // Convertimos la cantidad a string con la cantidad de decimales adecuada.
-    final String cantidadStr = lote.cantidadKg.toStringAsFixed(decimalPlaces);
+  /// Concatena los siguientes campos con el delimitador pipe (|) y 2 decimales fijos:
+  /// ID_Lote | Tipo_Bien | Cantidad_Kg | Comunidad_Destino_Id | Timestamp
+  static String calcularHash(Lote lote) {
+    final String cantidadStr = lote.cantidadKg.toStringAsFixed(2);
     
     final List<String> partes = [
       lote.loteId,
@@ -21,7 +18,7 @@ class CryptographyService {
       lote.timestampCreacion,
     ];
     
-    final String payload = partes.join(delimiter);
+    final String payload = partes.join('|');
     final List<int> bytes = utf8.encode(payload);
     final Digest digest = sha256.convert(bytes);
     

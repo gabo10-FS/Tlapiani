@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:convert';
 import '../models/lote_model.dart';
+import '../theme/app_theme.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -32,29 +33,25 @@ class _ScannerScreenState extends State<ScannerScreen> {
         setState(() {
           _hasScanned = true;
         });
-        controller.stop(); // Detenemos la cámara para ahorrar batería y no re-escanear
+        controller.stop();
 
         try {
-          // Decodificamos el JSON del QR
           final Map<String, dynamic> json = jsonDecode(rawValue);
           final lote = Lote.fromJson(json);
 
-          // Navegamos a la pantalla de validación
           Navigator.of(context).pushReplacementNamed(
             '/validation_result',
             arguments: lote,
           );
         } catch (e) {
-          // Si el código QR no tiene el formato correcto
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('QR no compatible con Tlapiani: $e'),
-              backgroundColor: Colors.redAccent,
+              content: Text('Código QR no compatible con Tlapiani: $e'),
+              backgroundColor: AppTheme.accentCrimson,
               duration: const Duration(seconds: 2),
             ),
           );
           
-          // Re-iniciar el escáner tras un breve delay
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
               setState(() {
@@ -73,8 +70,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Escanear QR de Lote', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF161920),
+        title: const Text(
+          'Escanear QR de Lote',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 17),
+        ),
+        backgroundColor: AppTheme.darkBgSecondary,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -82,19 +82,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
               valueListenable: controller,
               builder: (context, state, child) {
                 switch (state.torchState) {
-                  case TorchState.off:
-                    return const Icon(Icons.flash_off, color: Colors.grey);
                   case TorchState.on:
-                    return const Icon(Icons.flash_on, color: Colors.yellow);
-                  case TorchState.auto:
-                    return const Icon(Icons.flash_auto, color: Colors.blue);
-                  case TorchState.unavailable:
+                    return const Icon(Icons.flash_on_rounded, color: AppTheme.accentAmber);
+                  case TorchState.off:
                   default:
-                    return const Icon(Icons.flash_off, color: Colors.grey);
+                    return const Icon(Icons.flash_off_rounded, color: AppTheme.darkTextMuted);
                 }
               },
             ),
             onPressed: () => controller.toggleTorch(),
+            tooltip: 'Linterna',
           ),
           IconButton(
             icon: ValueListenableBuilder<MobileScannerState>(
@@ -102,15 +99,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
               builder: (context, state, child) {
                 switch (state.cameraDirection) {
                   case CameraFacing.front:
-                    return const Icon(Icons.camera_front, color: Colors.white);
+                    return const Icon(Icons.camera_front_rounded, color: Colors.white);
                   case CameraFacing.back:
                   default:
-                    return const Icon(Icons.camera_rear, color: Colors.white);
+                    return const Icon(Icons.camera_rear_rounded, color: Colors.white);
                 }
               },
             ),
             onPressed: () => controller.switchCamera(),
+            tooltip: 'Cambiar cámara',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Stack(
@@ -119,41 +118,45 @@ class _ScannerScreenState extends State<ScannerScreen> {
             controller: controller,
             onDetect: _onDetect,
           ),
-          // Cuadro visual de guía
+          // Máscara oscura con marco de escaneo central
           Center(
             child: Container(
               width: 260,
               height: 260,
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF10B981), width: 3),
+                border: Border.all(color: AppTheme.accentEmerald, width: 2.5),
                 borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Icon(Icons.center_focus_weak, color: Color(0xFF10B981), size: 24),
-                ),
+                boxShadow: const [AppTheme.glowEmerald],
               ),
             ),
           ),
+          // Instrucción inferior
           Positioned(
-            bottom: 60,
-            left: 30,
-            right: 30,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.8),
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-              ),
-              child: const Text(
-                'Enfoque el código QR del contenedor para calcular el hash inalterable.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+            bottom: 40,
+            left: 20,
+            right: 20,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkBgSecondary.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppTheme.darkGlassBorder),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.qr_code_scanner_rounded, color: AppTheme.accentEmerald, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Apunta al código QR del paquete de ayuda',
+                      style: TextStyle(
+                        color: AppTheme.darkTextMain,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
