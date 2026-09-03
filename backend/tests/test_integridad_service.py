@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -9,6 +10,22 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.services.integridad_service import formatear_timestamp, generar_sello, siguiente_lote_id
+
+TEST_MYSQL_URL = os.getenv("TEST_MYSQL_URL")
+
+
+def _crear_engine_de_prueba():
+    """MariaDB real si `TEST_MYSQL_URL` está definida (ejercita la rama
+    LAST_INSERT_ID con conexiones concurrentes de verdad), SQLite en memoria si
+    no. Ver tests/conftest.py."""
+    if TEST_MYSQL_URL:
+        # pool normal: la concurrencia real necesita varias conexiones
+        return create_async_engine(TEST_MYSQL_URL)
+    return create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
 
 def test_formatear_timestamp_produce_iso_utc_con_z():
@@ -63,17 +80,15 @@ async def test_siguiente_lote_id_no_genera_duplicados_bajo_llamadas_concurrentes
     sentencia atómica). Con eso, este mismo test -- sin ningún otro cambio --
     pasa de forma consistente.
 
-    Sigue habiendo un límite real de lo que esto prueba: corre contra SQLite
-    en memoria, no contra MariaDB (no hay servidor disponible en este
-    entorno). El branch de SQL para MariaDB se verificó por inspección del
-    SQL compilado, no por ejecución real -- ver integridad_service.py.
+    Por defecto corre contra SQLite en memoria. Con `TEST_MYSQL_URL` definida
+    corre contra MariaDB/MySQL real, que es donde de verdad importa: ejercita
+    la rama `INSERT .. ON DUPLICATE KEY UPDATE` + `LAST_INSERT_ID()` con
+    conexiones concurrentes reales (ver tests/test_sql_dialect_compat.py para
+    la guarda estática que impide que vuelva a colarse un RETURNING).
     """
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = _crear_engine_de_prueba()
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     session_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
@@ -88,6 +103,9 @@ async def test_siguiente_lote_id_no_genera_duplicados_bajo_llamadas_concurrentes
     try:
         resultados = await asyncio.gather(*[_una_llamada() for _ in range(N)])
     finally:
+        if TEST_MYSQL_URL:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
 
     assert len(resultados) == N

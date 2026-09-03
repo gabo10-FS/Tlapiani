@@ -1,14 +1,22 @@
 """Infraestructura compartida para tests de integración HTTP.
 
-Usa SQLite en memoria (no MariaDB real -- no hay servidor disponible en este
-entorno) vía override de la dependencia get_db. Limitación honesta: los
-triggers de inmutabilidad de RNF-1.1 (trg_prevent_update_bitacora / _delete)
-son SQL crudo de MariaDB definido en la migración de Alembic, no en los
-modelos de SQLAlchemy -- Base.metadata.create_all() (lo que usan estos tests)
-no los crea, así que ningún test de este archivo ni de los que lo usan
-verifica esa restricción. Verificarla requeriría una MariaDB real.
+Por defecto usa SQLite en memoria (rápido, sin dependencias). Para correr la
+MISMA suite contra una MariaDB/MySQL real -- lo que detecta incompatibilidades
+de dialecto que SQLite tolera (ver tests/test_sql_dialect_compat.py y el bug de
+RETURNING que motivó esa cobertura) -- define la variable de entorno
+`TEST_MYSQL_URL`, p. ej.:
+
+    TEST_MYSQL_URL=mysql+aiomysql://root@127.0.0.1:3306/tlapiani_test pytest
+
+El esquema se crea con `Base.metadata.create_all` y se borra al terminar cada
+test. Nota: `create_all` NO crea los triggers de inmutabilidad de RNF-1.1
+(trg_prevent_update_bitacora / _delete) -- viven en la migración de Alembic, no
+en los modelos. Los cubre `tests/test_immutability_triggers.py`, que también
+necesita `TEST_MYSQL_URL` y aplica esos `CREATE TRIGGER` leyéndolos de la
+migración.
 """
 
+import os
 from decimal import Decimal
 
 import pytest
@@ -24,17 +32,26 @@ from app.main import app
 from app.models.comunidad import Comunidad
 from app.models.usuario import Usuario
 
+TEST_MYSQL_URL = os.getenv("TEST_MYSQL_URL")
+
 
 @pytest_asyncio.fixture
 async def test_engine():
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    if TEST_MYSQL_URL:
+        engine = create_async_engine(TEST_MYSQL_URL)
+    else:
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield engine
+    if TEST_MYSQL_URL:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
