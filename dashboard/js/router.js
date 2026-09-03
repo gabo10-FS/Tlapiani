@@ -5,8 +5,8 @@
    - Limpia animaciones de la vista previa antes de montar la nueva.
    ============================================================ */
 
-import { auth } from './api.js?v=redesign2';
-import { cleanupView } from './animations.js?v=redesign3';
+import { auth } from './api.js?v=redesign3';
+import { cleanupView } from './animations.js?v=redesign4';
 import { destroyActiveMap } from './mapCommon.js?v=redesign5';
 
 const routes = new Map();
@@ -42,6 +42,11 @@ async function resolve() {
   // Limpieza de la vista anterior (mata tweens + ScrollTriggers + mapa)
   cleanupView();
   destroyActiveMap();
+  // Un <dialog> abierto (ej. "Lote registrado" en inventario) es parte del
+  // DOM de la vista, no de #view-root -- sobrevive al remount y queda
+  // flotando encima de la vista siguiente si el usuario no lo cerró antes
+  // de navegar. Ciérralo aquí, junto con el resto de la limpieza de ruta.
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
 
   if (!route) { notFound && notFound(); return; }
 

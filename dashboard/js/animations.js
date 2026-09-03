@@ -156,6 +156,13 @@ export function revealOnScroll(selector, scroller) {
   // selector antes de crear uno nuevo sobre los elementos actuales.
   scrollBatches.get(selector)?.forEach(t => t.kill());
   scrollBatches.delete(selector);
+  // publico.js llama revealOnScroll('.news-card') / '.hist-card' de una vez,
+  // sin condicionar a si hay noticias/historias publicadas -- con la lista
+  // vacía (estado real, no un bug) el selector no matchea nada, y tanto
+  // gsap.set() como ScrollTrigger.batch() avisan "target not found" en
+  // consola por cada llamada. No es un error real: simplemente no hay nada
+  // que revelar todavía.
+  if (!document.querySelector(selector)) return;
   if (reduced) { gsap.set(selector, { autoAlpha: 1 }); return; }
   gsap.set(selector, { y: 18, autoAlpha: 0 });
   const batch = ScrollTrigger.batch(selector, {

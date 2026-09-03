@@ -5,9 +5,9 @@
    - Tabla de bienes con filtros de búsqueda rápida.
    ============================================================ */
 
-import { api } from '../api.js?v=redesign2';
+import { api } from '../api.js?v=redesign3';
 import { esc, estadoBadge, skeleton, openDialog, closeDialog, showError } from './ui.js?v=redesign1';
-import { runViewAnimations, enterStagger, enterPanel, revealOnScroll } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterStagger, enterPanel, revealOnScroll } from '../animations.js?v=redesign4';
 
 export async function mountInventario(root) {
   root.innerHTML = `

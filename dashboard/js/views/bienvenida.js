@@ -7,8 +7,8 @@
    (práctica común en neumorphism real) sin diluir el efecto.
    ============================================================ */
 
-import { auth } from '../api.js?v=redesign2';
-import { runViewAnimations, gsap } from '../animations.js?v=redesign3';
+import { auth } from '../api.js?v=redesign3';
+import { runViewAnimations, gsap } from '../animations.js?v=redesign4';
 
 export async function mountBienvenida(root, { onLogin, onVisitante }) {
   const authed = auth.isAuthed();

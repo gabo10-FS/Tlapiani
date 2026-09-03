@@ -7,10 +7,10 @@
    - Popup con botón "Asignar lote".
    ============================================================ */
 
-import { api } from '../api.js?v=redesign2';
+import { api } from '../api.js?v=redesign3';
 import { esc, scoreBadge, openDialog, closeDialog, skeleton, showError } from './ui.js?v=redesign1';
 import { buildPriorityMap, colorFor } from '../mapCommon.js?v=redesign5';
-import { runViewAnimations, enterPanel, enterStagger, refreshScroll } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterPanel, enterStagger, refreshScroll } from '../animations.js?v=redesign4';
 
 export async function mountMapa(root) {
   root.innerHTML = `

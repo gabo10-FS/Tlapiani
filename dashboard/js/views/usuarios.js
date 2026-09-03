@@ -8,9 +8,9 @@
      inventa esas operaciones.
    ============================================================ */
 
-import { api, auth } from '../api.js?v=redesign2';
+import { api, auth } from '../api.js?v=redesign3';
 import { esc, skeleton, showError } from './ui.js?v=redesign1';
-import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js?v=redesign4';
 
 const ROLES = ['Administrador', 'Donante', 'Transportista'];
 

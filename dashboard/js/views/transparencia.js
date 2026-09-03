@@ -6,9 +6,9 @@
      Creado → En Ruta → Recibido (con estado criptográfico).
    ============================================================ */
 
-import { api } from '../api.js?v=redesign2';
+import { api } from '../api.js?v=redesign3';
 import { esc, estadoBadge, skeleton } from './ui.js?v=redesign1';
-import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js?v=redesign4';
 
 export async function mountTransparencia(root, preId) {
   root.innerHTML = `

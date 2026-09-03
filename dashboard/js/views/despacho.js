@@ -8,9 +8,9 @@
    - Botón "Imprimir etiqueta" abre una vista optimizada (@media print).
    ============================================================ */
 
-import { api } from '../api.js?v=redesign2';
+import { api } from '../api.js?v=redesign3';
 import { esc, estadoBadge, openDialog, closeDialog, showError } from './ui.js?v=redesign1';
-import { runViewAnimations, enterPanel, gsap } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterPanel, gsap } from '../animations.js?v=redesign4';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -67,7 +67,7 @@ export async function mountDespacho(root) {
             <span>Vehículo / placa</span>
             <input name="vehiculo" required minlength="3" placeholder="MX-0000" />
           </label>
-          <button type="submit" class="neu-btn neu-btn--block" style="color:var(--accent-blue)">Confirmar despacho &amp; generar QR</button>
+          <button type="submit" class="neu-btn neu-btn--emerald neu-btn--block">Confirmar despacho &amp; generar QR</button>
         </form>
       </section>
 
@@ -138,7 +138,12 @@ export async function mountDespacho(root) {
         tipo_bien: lote.tipo || '',
         cantidad_kg: Number(lote.cantidad) || 0,
         comunidad_destino_id: Number(lote.comunidadId) || 0,
-        timestamp_creacion: lote.timestamp_creacion || (lote.fecha ? new Date(lote.fecha).toISOString().slice(0, 19) + 'Z' : new Date().toISOString().slice(0, 19) + 'Z'),
+        // lote.timestampCreacion es el valor exacto que devolvió el backend al
+        // registrar (hora real, no solo la fecha) -- imprescindible para que el
+        // hash que recalcule el móvil desde este QR coincida con el sello real.
+        // El fallback reconstruido a partir de lote.fecha (solo YYYY-MM-DD) solo
+        // debería usarse si de verdad no llegó el timestamp completo.
+        timestamp_creacion: lote.timestampCreacion || (lote.fecha ? new Date(lote.fecha).toISOString().slice(0, 19) + 'Z' : new Date().toISOString().slice(0, 19) + 'Z'),
         hash_sha256: res.hash,
         // Compatibilidad heredada
         id: loteId,

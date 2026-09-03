@@ -10,9 +10,9 @@
    (100% mock, nunca llegó a persistir nada).
    ============================================================ */
 
-import { api, auth } from '../api.js?v=redesign2';
+import { api, auth } from '../api.js?v=redesign3';
 import { esc, skeleton, showError, showSuccess } from './ui.js?v=redesign1';
-import { runViewAnimations, enterPanel } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterPanel } from '../animations.js?v=redesign4';
 
 /* Iconos de las pestañas como SVG en línea (stroke=currentColor): un
    glifo Unicode como ⬡ o ◧ cae a la fuente de emoji de Windows y se ve

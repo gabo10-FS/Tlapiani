@@ -11,6 +11,7 @@
      POST /api/v1/auth/login
      POST /api/v1/usuarios/registrar   · GET /api/v1/usuarios      (Administrador)
      GET  /api/v1/comunidades/prioridad
+     GET  /api/v1/donaciones                        (listado, cualquier sesión)
      POST /api/v1/donaciones/registrar
      POST /api/v1/donaciones/{lote_id}/despachar
      GET  /api/v1/donaciones/historial/{lote_id}   (público)
@@ -22,8 +23,10 @@
    `tiposBien()` sigue en modo simulado (mock/data.js): `tipo_bien` es
    texto libre en el backend, ese datalist es solo UX, no hay catálogo
    que crear. `comunidades()`/`galeriaDestacada()` (mock/data.js) ya no
-   se usan desde ninguna vista. `lotes()` mantiene un caché de sesión
-   porque no existe GET /api/v1/donaciones para listar todos los lotes.
+   se usan desde ninguna vista. `lotes()` ya llama a GET /api/v1/donaciones
+   (antes no existía; `lotesDB` ahora es solo un espejo en memoria de la
+   última respuesta, para que despachar() pueda leer el lote recién
+   despachado sin otro round-trip).
    ============================================================ */
 
 import { TIPOS_BIEN } from './mock/data.js';
@@ -136,6 +139,23 @@ function adaptComunidad(c) {
   };
 }
 
+// LoteResumenResponse (GET /donaciones) -> misma forma interna que adaptLoteRegistrado.
+function adaptLoteResumen(l) {
+  return {
+    id: l.lote_id,
+    tipo: l.tipo_bien,
+    cantidad: Number(l.cantidad_kg),
+    unidad: 'kg',
+    comunidad: l.comunidad_destino_nombre,
+    comunidadId: l.comunidad_destino_id,
+    origen: l.origen_acopio,
+    estado: l.estado_actual,
+    fecha: String(l.created_at).slice(0, 10), // solo para mostrar en tabla
+    timestampCreacion: l.created_at,          // valor completo -- lo usa el QR para recalcular el sello
+    hash: l.hash_sha256,
+  };
+}
+
 // RegistroLoteResponse -> forma { id, tipo, cantidad, unidad, comunidad, comunidadId, origen, estado, fecha, hash }
 function adaptLoteRegistrado(res, body, comunidadNombre) {
   return {
@@ -147,7 +167,8 @@ function adaptLoteRegistrado(res, body, comunidadNombre) {
     comunidadId: body.comunidad_destino_id,
     origen: body.origen_acopio,
     estado: res.status,
-    fecha: String(res.timestamp_creacion).slice(0, 10),
+    fecha: String(res.timestamp_creacion).slice(0, 10), // solo para mostrar en tabla
+    timestampCreacion: res.timestamp_creacion,          // valor completo -- lo usa el QR para recalcular el sello
     hash: res.hash_sha256,
   };
 }
@@ -270,12 +291,11 @@ export const api = {
     await delay(80); return [...TIPOS_BIEN];
   },
 
-  /* --- Inventario (real: crear; sin endpoint de listado -> caché de sesión) --- */
+  /* --- Inventario (real) --- */
   async lotes() {
-    // No existe GET /api/v1/donaciones en el backend real: no hay forma de
-    // listar todos los lotes existentes. Mantenemos un caché local que se
-    // llena con los lotes creados/despachados en esta sesión del navegador.
-    await delay(0); return [...lotesDB];
+    const rows = await request('/api/v1/donaciones');
+    lotesDB = rows.map(adaptLoteResumen);
+    return [...lotesDB];
   },
   async crearLote(payload) {
     // payload de la vista: { tipo, cantidad, unidad, comunidad (nombre), comunidadId, origen }

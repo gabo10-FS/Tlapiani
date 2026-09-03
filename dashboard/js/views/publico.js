@@ -5,11 +5,11 @@
    misión/visión, objetivos y CTA.
    ============================================================ */
 
-import { api } from '../api.js?v=redesign2';
+import { api } from '../api.js?v=redesign3';
 import { esc, scoreBadge, openDialog, closeDialog } from './ui.js?v=redesign1';
 import { buildUnifiedMap } from '../mapCommon.js?v=redesign5';
 import { renderExperiencia } from '../experiencia.js?v=20260902d';
-import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js?v=redesign3';
+import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js?v=redesign4';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
