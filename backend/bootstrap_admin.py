@@ -37,8 +37,10 @@ CLAUDE.md / respuesta-backend-2026-08-25.md para esa decisión pendiente).
 import asyncio
 import getpass
 import os
+import sys
 from decimal import Decimal
 
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import func, select
 
 from app.core.security import hash_password
@@ -46,6 +48,8 @@ from app.db.session import AsyncSessionLocal
 from app.models.comunidad import Comunidad
 from app.models.usuario import Usuario
 from app.services.priorizacion_service import _aplicar_score
+
+_EMAIL_ADAPTER = TypeAdapter(EmailStr)
 
 COMUNIDADES_EJEMPLO = [
     # nombre, estado, lat, lng, indice_marginacion, indice_pobreza, coeficiente_emergencia
@@ -60,6 +64,29 @@ COMUNIDADES_EJEMPLO = [
     ("[EJEMPLO] Coicoyán de las Flores", "Oaxaca", 17.267, -98.283, 76, 73, 0),
     ("[EJEMPLO] Guachochi", "Chihuahua", 26.816, -107.070, 35, 32, 0),
 ]
+
+
+def _validar_email(valor: str) -> str:
+    """Misma validación que UsuarioRegistroPayload.email (EmailStr). Se hace aquí
+    porque este script inserta con SQLAlchemy crudo, sin pasar por el schema —
+    un email inválido (p. ej. TLD reservado como '.test') entraría a la BD y
+    luego GET /usuarios devolvería 500 al serializar esa fila con EmailStr."""
+    return _EMAIL_ADAPTER.validate_python(valor.strip())
+
+
+def _leer_email() -> str:
+    por_entorno = os.environ.get("ADMIN_EMAIL")
+    if por_entorno:
+        try:
+            return _validar_email(por_entorno)
+        except ValidationError as exc:
+            sys.exit(f"ADMIN_EMAIL no es un correo válido: {exc.errors()[0]['msg']}")
+    while True:
+        crudo = input("Email del administrador [rubenguzman647@gmail.com]: ") or "rubenguzman647@gmail.com"
+        try:
+            return _validar_email(crudo)
+        except ValidationError as exc:
+            print(f"Correo inválido ({exc.errors()[0]['msg']}), intenta de nuevo.")
 
 
 def _leer_password() -> str:
@@ -79,7 +106,7 @@ def _leer_password() -> str:
 
 
 async def bootstrap() -> None:
-    email = os.environ.get("ADMIN_EMAIL") or input("Email del administrador [rubenguzman647@gmail.com]: ") or "rubenguzman647@gmail.com"
+    email = _leer_email()
     nombre = os.environ.get("ADMIN_NAME") or input("Nombre completo [Ruben Guzmán]: ") or "Ruben Guzmán"
     password = _leer_password()
 
