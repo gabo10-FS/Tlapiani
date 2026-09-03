@@ -19,10 +19,29 @@ cp .env.example .env          # y ajustar credenciales de MariaDB
 alembic upgrade head          # crea el esquema + triggers de inmutabilidad
 uvicorn app.main:app --reload --port 8000
 
-pytest                        # tests unitarios de los servicios (no requieren BD)
+pytest                        # suite completa sobre SQLite en memoria (no requiere BD)
 ```
 
 `GET /docs` expone el Swagger UI una vez levantado el servidor.
+
+#### Correr la suite contra MariaDB/MySQL real
+
+`pytest` a secas usa SQLite en memoria (rápido, sin dependencias). SQLite tolera
+SQL que MariaDB rechaza — p. ej. `RETURNING` con `ON DUPLICATE KEY UPDATE` —, así
+que conviene correr la **misma** suite contra el motor de producción antes de
+mergear cambios que toquen SQL. Basta una BD vacía y la variable `TEST_MYSQL_URL`:
+
+```bash
+mysql -u root -e "CREATE DATABASE tlapiani_test CHARACTER SET utf8mb4"
+TEST_MYSQL_URL=mysql+aiomysql://root@127.0.0.1:3306/tlapiani_test pytest
+```
+
+El esquema se crea/borra con `Base.metadata` en cada test. Los triggers de
+inmutabilidad de `envios_bitacora` (RNF-1.1) viven en la migración de Alembic, no
+en los modelos — los cubre `tests/test_immutability_triggers.py`, que también
+requiere `TEST_MYSQL_URL` y aplica esos `CREATE TRIGGER` leyéndolos de la
+migración `0001`. Guardas estáticas de compatibilidad de dialecto (que corren
+siempre, sin BD): `tests/test_sql_dialect_compat.py`.
 
 ### Arranque inicial (`bootstrap_admin.py`)
 
@@ -39,7 +58,10 @@ ejemplo con su `score_urgencia`/`clasificacion` calculado por el motor real
 python bootstrap_admin.py
 ```
 
-Es idempotente (no duplica si ya existe el usuario o hay comunidades). Una
+Es idempotente (no duplica si ya existe el usuario o hay comunidades) y valida
+el email con la misma regla que la API (`EmailStr`): un correo inválido — un TLD
+reservado como `.test`, p. ej. — se rechaza antes de tocar la BD (si entrara,
+`GET /usuarios` daría 500 al serializar esa fila). Una
 vez dentro como ese Administrador, da de alta Transportistas/Donantes reales
 desde la pantalla "Usuarios" del dashboard — no hace falta tocar la base de
 datos a mano para eso. Reemplaza a un `seed_demo.py` anterior que sembraba
@@ -80,7 +102,9 @@ El registro subsiguiente en la base de datos almacena el hash del evento anterio
 
 ## Diseño de Base de Datos (MariaDB)
 
-La base de datos relacional se ejecutará directamente sobre la máquina host. El DDL real y versionado vive en `migrations/versions/0001_initial_schema.py` (Alembic); lo de abajo es la referencia de diseño y ya incluye las correcciones sobre el boceto original (`AUTOINCREMENT` → `AUTO_INCREMENT`, que no es sintaxis válida de MariaDB) y las columnas añadidas para cerrar los gaps de diseño de alta de usuarios, despacho a ruta e ingesta de alertas CENAPRED:
+La base de datos relacional se ejecutará directamente sobre la máquina host. El DDL real y versionado vive en `migrations/versions/0001_initial_schema.py` (Alembic); lo de abajo es la referencia de diseño y ya incluye las correcciones sobre el boceto original (`AUTOINCREMENT` → `AUTO_INCREMENT`, que no es sintaxis válida de MariaDB) y las columnas añadidas para cerrar los gaps de diseño de alta de usuarios, despacho a ruta e ingesta de alertas CENAPRED.
+
+> **Fechas — todo en UTC.** Las columnas `DATETIME` (`created_at`, `updated_at`, `despachado_en`, `timestamp_entrega`) **no** llevan `DEFAULT CURRENT_TIMESTAMP` — `NOW()` en MariaDB devuelve hora local del servidor, no UTC. Las llena el ORM con `app/core/time.py::ahora_utc()` (UTC naïve, truncado a segundos). La migración `0003` quita esos defaults. En las respuestas de la API toda fecha sale como `YYYY-MM-DDTHH:MM:SSZ` (tipo `app/schemas/_tiempo.py::FechaUtcZ`), el mismo formato que el timestamp del sello.
 
 ```sql
 -- Catálogo de Comunidades Rurales y Vulnerables
@@ -212,6 +236,32 @@ Todas las peticiones a endpoints de administración y sincronización requieren 
     "hash_sha256": "8f3c64e32d1f939e6a7156bb201e51b3a2157548b11119c36209581a32454a8e",
     "timestamp_creacion": "2026-06-29T09:15:00Z"
   }
+  ```
+
+### 2b. Listado de Lotes (Dashboard Web → Backend)
+- **Endpoint**: `GET /api/v1/donaciones`
+- **Autenticación**: requiere JWT de cualquier rol (`Administrador`, `Donante` o `Transportista`). No es dato público — el detalle público lote a lote se sirve por el endpoint #5 (`/donaciones/historial/{lote_id}`).
+- **Query params**: `estado` (opcional) — filtra por estado del lote; valores válidos: `Creado`, `En Ruta`, `Entregado Exitosamente`, `Alerta de Manipulación`. Un valor fuera de esa lista devuelve `422`. El selector de despacho del dashboard usa `?estado=Creado`.
+- **Orden**: por `created_at` descendente. Sin paginación (el volumen esperado de un operativo cabe en una respuesta, igual que `GET /usuarios` y `GET /centros-acopio`).
+- **Por qué existe**: el contrato original no incluía un listado de lotes; el dashboard lo suplía con datos de ejemplo del cliente. Este endpoint lo cierra para que Inventario, Despacho y los ejemplos de Transparencia usen datos reales.
+- **Respuesta (200 OK)**:
+  ```json
+  [
+    {
+      "lote_id": "TLAP-2026-9981",
+      "tipo_bien": "Canasta Básica Alimentos",
+      "cantidad_kg": "25.00",
+      "origen_acopio": "Centro de Acopio Puebla Centro",
+      "comunidad_destino_id": 21005,
+      "comunidad_destino_nombre": "San Andrés Larráinzar",
+      "comunidad_destino_estado": "Chiapas",
+      "estado_actual": "En Ruta",
+      "hash_sha256": "8f3c64e32d1f939e6a7156bb201e51b3a2157548b11119c36209581a32454a8e",
+      "transportista_id": 4,
+      "created_at": "2026-06-29T09:15:00Z",
+      "despachado_en": "2026-06-29T14:02:11Z"
+    }
+  ]
   ```
 
 ### 3. Obtener Comunidades por Prioridad (Dashboard Web/Móvil → Backend)
