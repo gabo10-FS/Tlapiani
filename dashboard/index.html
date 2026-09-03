@@ -111,6 +111,15 @@
     </main>
   </div>
 
+  <script>
+    // Deploy en Vercel: el dashboard y el backend viven en hosts distintos
+    // (api.js ya no puede deducir la URL del backend por mismo-host-otro-puerto).
+    // window.TLAPIANI_API la sobreescribe -- solo fuera de localhost, para no
+    // romper el flujo de desarrollo local (ver comentario en js/api.js).
+    if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      window.TLAPIANI_API = 'https://tlapiani-api-production.up.railway.app';
+    }
+  </script>
   <script type="module" src="./js/app.js?v=redesign15"></script>
 </body>
 </html>
