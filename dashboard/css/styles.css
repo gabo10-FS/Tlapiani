@@ -1496,7 +1496,11 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
   .tri-tag { position: static; align-self: flex-start; }
   .rs-linea { flex-direction: column; align-items: stretch; gap: 0; overflow-x: visible; }
   .rs-extremo { flex-direction: row; min-width: 0; justify-content: flex-start; gap: 10px; }
-  .rs-tramo { width: 8px; height: 26px; flex: none; align-self: flex-start; margin-left: 13px; }
+  /* min-width:26px de la regla de escritorio (arriba) le ganaba a este
+     width:8px -- min-width siempre gana sobre width cuando compiten, así
+     que el conector delgado terminaba siendo un círculo de 26x26px en
+     vez de la barrita vertical que se ve en escritorio. */
+  .rs-tramo { width: 8px; min-width: 8px; height: 26px; flex: none; align-self: flex-start; margin-left: 13px; }
   .rs-flujo { transform: scaleY(0); transform-origin: top; transition: none; }
   .rs-tramo.fluye .rs-flujo { transform: scaleY(1); transition: transform .5s linear; }
   .rs-nodo { width: 100%; align-items: flex-start; }

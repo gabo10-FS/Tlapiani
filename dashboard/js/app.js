@@ -62,8 +62,11 @@ function initTheme() {
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   const dark = theme === 'dark';
-  const label = $('[data-theme-label]'); if (label) label.textContent = dark ? '☾ Modo oscuro' : '☀ Modo claro';
-  const pub = $('#theme-toggle-public'); if (pub) pub.textContent = dark ? '☾' : '☀';
+  // ︎ (selector de variación de texto) evita que iOS/Safari pinte
+  // estos glifos como emoji a color -- se veían como 🌙/☀️ en vez del
+  // ícono de línea monocromático que usa el resto del sistema.
+  const label = $('[data-theme-label]'); if (label) label.textContent = dark ? '☾︎ Modo oscuro' : '☀︎ Modo claro';
+  const pub = $('#theme-toggle-public'); if (pub) pub.textContent = dark ? '☾︎' : '☀︎';
 }
 
 /* ---------------- Sidebar (móvil) ---------------- */
