@@ -31,7 +31,17 @@ import { TIPOS_BIEN, LOTES } from './mock/data.js';
 const TOKEN_KEY = 'tlapiani_jwt';
 const USER_KEY = 'tlapiani_user';
 
-export const API_BASE = 'http://127.0.0.1:8000';
+// El backend vive en el MISMO equipo que sirve el dashboard, en el
+// puerto 8000. Deducir la dirección del origen de la página (en vez
+// de fijar 127.0.0.1) es lo que permite abrirlo desde otro aparato de
+// la red: si entras desde el celular a http://192.168.1.50:8099, las
+// llamadas van a http://192.168.1.50:8000 y ya no al localhost DEL
+// CELULAR -- que era justo por lo que la página cargaba pero el login
+// nunca respondía.
+// Para apuntar a otro host, define window.TLAPIANI_API antes de app.js.
+export const API_BASE =
+  (typeof window !== 'undefined' && window.TLAPIANI_API) ||
+  `${location.protocol}//${location.hostname}:8000`;
 export const DEMO_MODE = false;        // ← false: usa el backend real donde el contrato existe
 
 /* ---------------- Sesión / JWT ---------------- */
@@ -72,7 +82,15 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true } = 
       body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
     });
   } catch {
-    throw new Error(`No se pudo conectar con el backend en ${API_BASE}. ¿Está corriendo uvicorn?`);
+    // fetch lanza el mismo TypeError si el backend no responde Y si el
+    // navegador bloqueó la respuesta por CORS, así que se nombran las
+    // dos causas: si no, desde otro dispositivo parece que las
+    // credenciales están mal cuando en realidad nunca hubo respuesta.
+    throw new Error(
+      `No hubo respuesta del backend en ${API_BASE}. Revisa que uvicorn esté corriendo ` +
+      `(y con --host 0.0.0.0 si entras desde otro aparato), y que CORS_ORIGINS incluya ` +
+      `${location.origin}.`
+    );
   }
 
   if (res.status === 401) {
@@ -127,7 +145,6 @@ function adaptLoteRegistrado(res, body, comunidadNombre) {
     origen: body.origen_acopio,
     estado: res.status,
     fecha: String(res.timestamp_creacion).slice(0, 10),
-    timestamp_creacion: res.timestamp_creacion,
     hash: res.hash_sha256,
   };
 }

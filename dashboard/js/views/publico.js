@@ -8,6 +8,7 @@
 import { api } from '../api.js';
 import { esc, scoreBadge, openDialog, closeDialog } from './ui.js';
 import { buildUnifiedMap } from '../mapCommon.js?v=20260831e';
+import { renderExperiencia } from '../experiencia.js?v=20260902d';
 import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -124,6 +125,15 @@ export async function mountPublico(root, scrollTo) {
         </div>
       </section>
 
+      <!-- PRUÉBALO TÚ: tres ejercicios, uno por cada capa de arriba -->
+      <section class="pub-section" id="sec-experimenta">
+        <span class="pub-eyebrow">Pruébalo tú</span>
+        <h3>Entiende Tlapiani en tres minutos</h3>
+        <p class="pub-lead">Tres ejercicios rápidos, uno por cada capa. No hace falta saber nada
+        técnico: se explica solo al usarlos.</p>
+        <div id="xp-root"></div>
+      </section>
+
       <section class="pub-cta card" id="sec-cta">
         <h3>Verifica una entrega ahora mismo</h3>
         <p>Ingresa el identificador de un lote y observa su recorrido completo, etapa por etapa.</p>
@@ -147,6 +157,7 @@ export async function mountPublico(root, scrollTo) {
   ]);
   renderNoticias(noticias);
   renderHistorias(historias);
+  renderExperiencia(document.getElementById('xp-root'), comunidades);
 
   // Galería precargada para thumbnails
   const galeriaMap = {};
