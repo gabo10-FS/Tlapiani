@@ -67,6 +67,46 @@ export function destroyActiveMap() {
   activeCleanups = [];
 }
 
+/* fitBounds() calculado contra un contenedor que aún no tiene su
+   tamaño final de flexbox puede producir un zoom no finito (Infinity/
+   NaN); con zoomSnap:0 (necesario para que México llene el contenedor
+   -- ver comentario donde se crea el mapa) no hay redondeo a entero
+   que lo evite. Un zoom no finito hace que TODA la proyección
+   colapse a (0,0): el contorno completo desaparece y cada marcador
+   termina en el mismo pixel, sin importar su lat/lng real. Una vez
+   así, ni invalidateSize() ni un fitBounds posterior con bounds
+   válidos lo corrigen solos. Verificar y, si hace falta, forzar un
+   centro/zoom de respaldo (Ciudad de México, zoom nacional) es lo que
+   saca al mapa de ese estado. */
+function boundsLookSane(map, bounds) {
+  // Un zoom no finito ya es un caso obvio, pero fitBounds() también
+  // puede devolver un zoom FINITO y aun así absurdo (todo México
+  // proyectado en un par de pixeles) si el tamaño que Leaflet tenía
+  // cacheado al calcularlo no era el real. Se compara el span en
+  // pixeles de las bounds contra el tamaño real del contenedor: si es
+  // muchísimo más chico de lo que debería, el resultado es basura.
+  if (!Number.isFinite(map.getZoom())) return false;
+  const size = map.getSize();
+  if (size.x < 40 || size.y < 40) return false;
+  const p1 = map.latLngToContainerPoint(bounds.getNorthWest());
+  const p2 = map.latLngToContainerPoint(bounds.getSouthEast());
+  const spanX = Math.abs(p2.x - p1.x), spanY = Math.abs(p2.y - p1.y);
+  return spanX > size.x * 0.25 || spanY > size.y * 0.25;
+}
+
+function safeFitBounds(map, bounds, options) {
+  map.fitBounds(bounds, options);
+  if (!boundsLookSane(map, bounds)) {
+    map.setView([23.6, -102.5], 5, { animate: false });
+    // setTimeout, no requestAnimationFrame -- misma razón que en
+    // waitForRealSize: no debe depender de que la pestaña esté visible.
+    setTimeout(() => {
+      map.invalidateSize();
+      if (boundsLookSane(map, bounds)) map.fitBounds(bounds, options);
+    });
+  }
+}
+
 function haversine(la1, lo1, la2, lo2) {
   const R = 6371, d2r = Math.PI / 180;
   const dLa = (la2 - la1) * d2r, dLo = (lo2 - lo1) * d2r;
@@ -252,7 +292,15 @@ export async function buildUnifiedMap(mapEl, geojson, comunidades, opts = {}) {
   // (.map-split en CSS), ya no flotan encima -- el mapa no tiene nada
   // que esquivar, se centra parejo en los cuatro lados.
   const FIT_PAD = { padding: [10, 10] };
-  map.fitBounds(stateLayer.getBounds(), FIT_PAD);
+  // Bug real reportado: a veces, en el primer fitBounds (el contenedor
+  // recién creado, antes de que el layout flex termine de asentarse),
+  // Leaflet calcula un zoom no finito. Con zoomSnap:0 no hay redondeo
+  // que lo salve, así que TODA la proyección colapsa a (0,0): el
+  // contorno de México desaparece y las 10 comunidades se amontonan en
+  // un solo punto. Una vez el zoom queda así, ni invalidateSize() ni
+  // un fitBounds posterior lo arreglan solos. safeFitBounds fuerza un
+  // centro/zoom de respaldo si eso llega a pasar.
+  safeFitBounds(map, stateLayer.getBounds(), FIT_PAD);
 
   // Puntos de comunidades, siempre visibles encima del choropleth.
   const markerByComunidad = new Map();
@@ -304,19 +352,41 @@ export async function buildUnifiedMap(mapEl, geojson, comunidades, opts = {}) {
   // ventana). Con ResizeObserver reencuadramos cada vez que el
   // contenedor cambia de tamaño de verdad -- salvo si el usuario ya
   // eligió un estado, para no sacarlo de su vista.
+  let lastFitSize = null;
   const refit = () => {
+    // .map-split usa 100vw para el ancho completo (ver CSS): cuando la
+    // barra de scroll del navegador aparece/desaparece durante el
+    // scroll, 100vw cambia unos px y el ResizeObserver dispara un
+    // refit aunque el mapa no cambió de tamaño de verdad. Repetir
+    // fitBounds() en cada uno de esos disparos podía interrumpir una
+    // animación de encuadre a medio camino y dejar el mapa en un
+    // estado de transform roto (marcadores colapsados en una esquina).
+    // Ignorar cambios de tamaño triviales evita eso de raíz.
+    const w = mapEl.offsetWidth, h = mapEl.offsetHeight;
+    if (w < 40 || h < 40) return; // contenedor todavía no tiene tamaño real
+    if (lastFitSize && Math.abs(w - lastFitSize.w) < 4 && Math.abs(h - lastFitSize.h) < 4) return;
+    lastFitSize = { w, h };
     map.invalidateSize();
-    if (selected === null) map.fitBounds(stateLayer.getBounds(), FIT_PAD);
+    if (selected === null) {
+      const bounds = stateLayer.getBounds();
+      // animate:false -- este refit es correctivo, no una navegación
+      // del usuario; no debe competir con (ni ser interrumpido por)
+      // un fitBounds/flyTo anterior todavía en vuelo.
+      if (bounds.isValid()) safeFitBounds(map, bounds, { ...FIT_PAD, animate: false });
+    }
   };
   refit();
   if (typeof ResizeObserver !== 'undefined') {
-    let raf = 0;
+    // setTimeout, no requestAnimationFrame, para debounce -- ver
+    // waitForRealSize más arriba: rAF no debe ser el único mecanismo
+    // del que depende que el mapa se termine de encuadrar.
+    let debounce = 0;
     const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(refit);
+      clearTimeout(debounce);
+      debounce = setTimeout(refit, 50);
     });
     ro.observe(mapEl);
-    activeCleanups.push(() => { cancelAnimationFrame(raf); ro.disconnect(); });
+    activeCleanups.push(() => { clearTimeout(debounce); ro.disconnect(); });
   } else {
     setTimeout(refit, 60);
   }

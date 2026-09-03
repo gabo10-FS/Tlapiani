@@ -6,16 +6,22 @@
      · admin    → dashboard con sidebar (requiere login)
    ============================================================ */
 
-import { api, auth, DEMO_MODE, API_BASE } from './api.js';
+import { api, auth, DEMO_MODE, API_BASE } from './api.js?v=redesign2';
 import { router } from './router.js';
-import { mountBienvenida } from './views/bienvenida.js';
-import { mountPublico } from './views/publico.js';
-import { mountInventario } from './views/inventario.js';
-import { mountMapa } from './views/mapa.js';
-import { mountDespacho } from './views/despacho.js';
-import { mountTransparencia } from './views/transparencia.js';
-import { mountUsuarios } from './views/usuarios.js';
-import { mountContenido } from './views/contenido.js';
+// ?v= bumpeado durante el rediseño "Bitácora Náutica": el navegador
+// cacheaba estos módulos sin revalidar (http.server no manda
+// Cache-Control), así que un F5 normal seguía sirviendo la versión
+// vieja aunque el archivo en disco ya estuviera actualizado. Súbelo
+// de nuevo si vuelves a tocar alguna de estas vistas y no ves el
+// cambio reflejado.
+import { mountBienvenida } from './views/bienvenida.js?v=redesign2';
+import { mountPublico } from './views/publico.js?v=redesign5';
+import { mountInventario } from './views/inventario.js?v=redesign4';
+import { mountMapa } from './views/mapa.js?v=redesign2';
+import { mountDespacho } from './views/despacho.js?v=redesign5';
+import { mountTransparencia } from './views/transparencia.js?v=redesign3';
+import { mountUsuarios } from './views/usuarios.js?v=redesign3';
+import { mountContenido } from './views/contenido.js?v=redesign3';
 
 /* ---------------- Refs ---------------- */
 const $ = (s, r = document) => r.querySelector(s);

@@ -5,9 +5,9 @@
    - Limpia animaciones de la vista previa antes de montar la nueva.
    ============================================================ */
 
-import { auth } from './api.js';
-import { cleanupView } from './animations.js';
-import { destroyActiveMap } from './mapCommon.js?v=20260831e';
+import { auth } from './api.js?v=redesign2';
+import { cleanupView } from './animations.js?v=redesign3';
+import { destroyActiveMap } from './mapCommon.js?v=redesign5';
 
 const routes = new Map();
 let notFound = null;

@@ -5,11 +5,11 @@
    misión/visión, objetivos y CTA.
    ============================================================ */
 
-import { api } from '../api.js';
-import { esc, scoreBadge, openDialog, closeDialog } from './ui.js';
-import { buildUnifiedMap } from '../mapCommon.js?v=20260831e';
+import { api } from '../api.js?v=redesign2';
+import { esc, scoreBadge, openDialog, closeDialog } from './ui.js?v=redesign1';
+import { buildUnifiedMap } from '../mapCommon.js?v=redesign5';
 import { renderExperiencia } from '../experiencia.js?v=20260902d';
-import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js';
+import { runViewAnimations, enterStagger, revealOnScroll, refreshScroll, gsap } from '../animations.js?v=redesign3';
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -73,78 +73,79 @@ export async function mountPublico(root, scrollTo) {
     <div class="pub">
       <!-- NOTICIAS -->
       <section class="pub-section pub-section--tint" id="sec-noticias">
-        <span class="pub-eyebrow">Entérate de lo que está pasando</span>
-        <h3>Noticias y alertas · ordenadas por prioridad de la IA</h3>
+        <h3 class="log-heading">Noticias y alertas, ordenadas por prioridad</h3>
         <div class="news-grid" id="news-grid"></div>
       </section>
 
       <!-- HISTORIAS -->
       <section class="pub-section" id="sec-historias">
-        <span class="pub-eyebrow">Historias reales</span>
-        <h3>Casos donde la trazabilidad marcó la diferencia</h3>
+        <h3 class="log-heading">Casos donde la trazabilidad marcó la diferencia</h3>
         <div class="hist-grid" id="hist-grid"></div>
       </section>
 
       <!-- MISIÓN / VISIÓN -->
       <section class="pub-section" id="sec-mision">
-        <span class="pub-eyebrow">Quiénes somos</span>
-        <h3>Custodiamos la confianza, no solo los recursos</h3>
-        <p class="pub-lead">«Tlapiani» significa en náhuatl «el que guarda y custodia». Ese es nuestro
+        <h3 class="log-heading">Custodiamos la confianza, no solo los recursos</h3>
+        <p class="log-sub">«Tlapiani» significa en náhuatl «el que guarda y custodia». Ese es nuestro
         compromiso: proteger la ayuda humanitaria en cada eslabón de su recorrido.</p>
-        <div class="mv-grid">
-          <div class="mv-card card"><h4>◈ Misión</h4>
+        <div class="neu-grid neu-grid--2" style="margin-top:24px">
+          <div class="neu-panel neu-card">
+            <h4>Misión</h4>
             <p>Reducir la brecha en la distribución de recursos humanitarios hacia las zonas de alta
-            marginación rural, garantizando que cada lote se asigne con criterios objetivos y pueda auditarse de principio a fin.</p></div>
-          <div class="mv-card card"><h4>✦ Visión</h4>
+            marginación rural, garantizando que cada lote se asigne con criterios objetivos y pueda auditarse de principio a fin.</p>
+          </div>
+          <div class="neu-panel neu-card">
+            <h4>Visión</h4>
             <p>Un país donde ninguna comunidad quede rezagada por falta de información, y donde cualquier
-            ciudadano, donante o autoridad pueda verificar —sin intermediarios— que la ayuda llegó íntegra.</p></div>
+            ciudadano, donante o autoridad pueda verificar, sin intermediarios, que la ayuda llegó íntegra.</p>
+          </div>
         </div>
       </section>
 
       <!-- OBJETIVOS -->
       <section class="pub-section" id="sec-objetivos">
-        <span class="pub-eyebrow">Nuestros objetivos</span>
-        <h3>Hacia dónde trabajamos</h3>
-        <div class="obj-grid">
-          <div class="obj-card card"><div class="obj-num">01</div><h4>Priorizar con justicia</h4><p>Dirigir la ayuda primero a las comunidades con mayor score de urgencia.</p></div>
-          <div class="obj-card card"><div class="obj-num">02</div><h4>Blindar la integridad</h4><p>Sellar cada lote con un hash SHA-256 imposible de alterar sin dejar rastro.</p></div>
-          <div class="obj-card card"><div class="obj-num">03</div><h4>Abrir la información</h4><p>Un portal público para consultar el historial completo de cualquier lote.</p></div>
-          <div class="obj-card card"><div class="obj-num">04</div><h4>Llegar a la última milla</h4><p>Validar la entrega en campo incluso sin conexión.</p></div>
+        <h3 class="log-heading">Hacia dónde trabajamos</h3>
+        <div class="neu-grid">
+          <div class="neu-panel neu-card"><h4>Priorizar con justicia</h4><p>Dirigir la ayuda primero a las comunidades con mayor score de urgencia.</p></div>
+          <div class="neu-panel neu-card"><h4>Blindar la integridad</h4><p>Sellar cada lote con un hash SHA-256 imposible de alterar sin dejar rastro.</p></div>
+          <div class="neu-panel neu-card"><h4>Abrir la información</h4><p>Un portal público para consultar el historial completo de cualquier lote.</p></div>
+          <div class="neu-panel neu-card"><h4>Llegar a la última milla</h4><p>Validar la entrega en campo incluso sin conexión.</p></div>
         </div>
       </section>
 
       <!-- QUÉ HACEMOS -->
       <section class="pub-section pub-section--tint" id="sec-hacemos">
-        <span class="pub-eyebrow">Qué puedes hacer aquí</span>
-        <h3>Una plataforma, tres capas de confianza</h3>
-        <div class="feat-grid">
-          <div class="feat-card card"><div class="feat-ico e">◉</div><h4>Priorización con IA</h4><p>Un mapa muestra qué comunidades necesitan ayuda con más urgencia.</p></div>
-          <div class="feat-card card"><div class="feat-ico b">▤</div><h4>Registro de inventario</h4><p>Los centros de acopio generan lotes trazables listos para despacho.</p></div>
-          <div class="feat-card card"><div class="feat-ico a">⇉</div><h4>Despacho con QR</h4><p>Cada lote viaja con una etiqueta QR que codifica su hash único.</p></div>
-          <div class="feat-card card"><div class="feat-ico c">◇</div><h4>Transparencia pública</h4><p>Cualquiera rastrea la cadena de custodia y detecta manipulación.</p></div>
+        <h3 class="log-heading">Una plataforma, cuatro capas de confianza</h3>
+        <div class="neu-grid">
+          <div class="neu-panel neu-card"><span class="neu-stamp">01</span><h4>Priorización algorítmica</h4><p>Un mapa muestra qué comunidades necesitan ayuda con más urgencia, según un puntaje transparente y auditable.</p></div>
+          <div class="neu-panel neu-card"><span class="neu-stamp blue">02</span><h4>Registro de inventario</h4><p>Los centros de acopio generan lotes trazables listos para despacho.</p></div>
+          <div class="neu-panel neu-card"><span class="neu-stamp amber">03</span><h4>Despacho con QR</h4><p>Cada lote viaja con una etiqueta QR que codifica su hash único.</p></div>
+          <div class="neu-panel neu-card"><span class="neu-stamp crimson">04</span><h4>Transparencia pública</h4><p>Cualquiera rastrea la cadena de custodia y detecta manipulación.</p></div>
         </div>
       </section>
 
       <!-- PRUÉBALO TÚ: tres ejercicios, uno por cada capa de arriba -->
       <section class="pub-section" id="sec-experimenta">
-        <span class="pub-eyebrow">Pruébalo tú</span>
-        <h3>Entiende Tlapiani en tres minutos</h3>
-        <p class="pub-lead">Tres ejercicios rápidos, uno por cada capa. No hace falta saber nada
+        <h3 class="log-heading">Entiende Tlapiani en tres minutos</h3>
+        <p class="log-sub">Tres ejercicios rápidos, uno por cada capa. No hace falta saber nada
         técnico: se explica solo al usarlos.</p>
         <div id="xp-root"></div>
       </section>
 
-      <section class="pub-cta card" id="sec-cta">
-        <h3>Verifica una entrega ahora mismo</h3>
-        <p>Ingresa el identificador de un lote y observa su recorrido completo, etapa por etapa.</p>
-        <div class="landing__cta">
-          <a class="btn btn--emerald btn--lg" href="#/transparencia">Ir al Portal de Transparencia →</a>
-          <button class="btn btn--ghost btn--lg" id="pub-admin" type="button">Soy administrador</button>
+      <section class="pub-cta" id="sec-cta">
+        <div class="neu-panel neu-card" style="text-align:center;padding:40px">
+          <span class="neu-stamp" style="margin:0 auto 16px">→</span>
+          <h3 style="font-size:22px;margin-bottom:8px">Verifica una entrega ahora mismo</h3>
+          <p>Ingresa el identificador de un lote y observa su recorrido completo, etapa por etapa.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:20px">
+            <a class="neu-btn neu-btn--emerald" href="#/transparencia">Ir al Portal de Transparencia →</a>
+            <button class="neu-btn" id="pub-admin" type="button">Soy administrador</button>
+          </div>
         </div>
       </section>
 
       <footer class="pub-footer">
-        <p>◈ Tlapiani — Ecosistema de trazabilidad de ayuda humanitaria · Proyecto académico (demo).</p>
+        <p>Tlapiani — Ecosistema de trazabilidad de ayuda humanitaria · Proyecto académico (demo).</p>
       </footer>
     </div>`;
 
@@ -188,10 +189,10 @@ export async function mountPublico(root, scrollTo) {
     }
     revealOnScroll('.news-card');
     revealOnScroll('.hist-card');
-    revealOnScroll('.mv-card');
-    revealOnScroll('.obj-card');
-    revealOnScroll('.feat-card');
-    revealOnScroll('#sec-cta');
+    revealOnScroll('#sec-mision .neu-card');
+    revealOnScroll('#sec-objetivos .neu-card');
+    revealOnScroll('#sec-hacemos .neu-card');
+    revealOnScroll('#sec-cta .neu-card');
   });
 
   // Mapa unificado: elige tu estado + comunidades, en un solo Leaflet map.
@@ -356,15 +357,16 @@ export async function mountPublico(root, scrollTo) {
     const grid = document.getElementById('news-grid');
     if (!items.length) { grid.innerHTML = `<p class="text-muted text-sm">Sin noticias publicadas todavía.</p>`; return; }
     grid.innerHTML = items.map(n => `
-      <article class="news-card card">
-        <div class="news-img" style="background-image:url('${esc(n.img || '')}')">
+      <article class="news-card">
+        ${n.img ? `<div class="news-img" style="background-image:url('${esc(n.img)}')">
           <span class="badge badge--${n.nivel === 'crítica' ? 'crimson' : n.nivel === 'alta' ? 'amber' : 'blue'}">${esc(n.tipo)} · ${esc(n.nivel)}</span>
-        </div>
+        </div>` : ''}
         <div class="news-body">
+          ${n.img ? '' : `<span class="badge badge--${n.nivel === 'crítica' ? 'crimson' : n.nivel === 'alta' ? 'amber' : 'blue'}" style="align-self:flex-start">${esc(n.tipo)} · ${esc(n.nivel)}</span>`}
           <div class="news-meta"><span>${esc(n.zona)}</span><span>${esc(n.fecha)}</span></div>
           <h4>${esc(n.titulo)}</h4>
           <p>${esc(n.resumen)}</p>
-          <div class="news-prio"><span class="prio-bar"><span style="width:${n.prioridad}%"></span></span>Prioridad IA ${n.prioridad}</div>
+          <div class="news-prio"><span class="prio-bar"><span style="width:${n.prioridad}%"></span></span>Prioridad ${n.prioridad}</div>
         </div>
       </article>`).join('');
   }
@@ -373,8 +375,8 @@ export async function mountPublico(root, scrollTo) {
     const grid = document.getElementById('hist-grid');
     if (!items.length) { grid.innerHTML = `<p class="text-muted text-sm">Sin historias publicadas todavía.</p>`; return; }
     grid.innerHTML = items.map(h => `
-      <article class="hist-card card">
-        <div class="hist-img" style="background-image:url('${esc(h.img || '')}')"></div>
+      <article class="hist-card">
+        ${h.img ? `<div class="hist-img" style="background-image:url('${esc(h.img)}')"></div>` : ''}
         <div class="hist-body">
           <span class="badge badge--emerald">${esc(h.impacto)}</span>
           <h4>${esc(h.titulo)}</h4>

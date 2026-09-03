@@ -1,0 +1,30 @@
+# Script de SFTP en modo batch para publicar el dashboard de Tlapiani
+# en w3server.cs.buap.mx (cuenta chroot /sitio).
+#
+# CÓMO USARLO (tú lo corres, no Claude — nunca comparto ni tecleo la contraseña):
+#
+#   cd dashboard
+#   sftp -b deploy/sftp-publicar.txt tlapiani@w3server.cs.buap.mx
+#
+# Te va a pedir la contraseña de forma interactiva (o usa tu llavero SSH si
+# prefieres). Si usas FileZilla/WinSCP en vez de la CLI, simplemente arrastra
+# estas mismas rutas (index.html, css/, js/, data/) a la raíz del sitio.
+
+cd /sitio
+put index.html
+put -r css
+put -r js
+put -r data
+
+# --- Publicación ---
+# El portal https://asr.cs.buap.mx/publicar/ describe un paso extra: subir un
+# archivo vacío llamado PUBLICAR para disparar la revisión, y luego revisar
+# RESULTADO-PUBLICACION.txt a los 1-3 minutos. Esto lo leí de esa página web,
+# NO es algo que yo vaya a asumir como correcto sin que tú lo confirmes —
+# créalo tú mismo si decides seguir ese flujo:
+#
+#   sftp> !touch /tmp/PUBLICAR   (o crea un archivo vacío local llamado PUBLICAR)
+#   sftp> put /tmp/PUBLICAR
+#
+# y luego:
+#   sftp> get RESULTADO-PUBLICACION.txt

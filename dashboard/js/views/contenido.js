@@ -10,9 +10,9 @@
    (100% mock, nunca llegó a persistir nada).
    ============================================================ */
 
-import { api, auth } from '../api.js';
-import { esc, skeleton } from './ui.js';
-import { runViewAnimations, enterPanel } from '../animations.js';
+import { api, auth } from '../api.js?v=redesign2';
+import { esc, skeleton, showError, showSuccess } from './ui.js?v=redesign1';
+import { runViewAnimations, enterPanel } from '../animations.js?v=redesign3';
 
 /* Iconos de las pestañas como SVG en línea (stroke=currentColor): un
    glifo Unicode como ⬡ o ◧ cae a la fuente de emoji de Windows y se ve
@@ -27,7 +27,7 @@ const TAB_SVG = {
 export async function mountContenido(root) {
   const me = auth.getUser();
   if (!me || me.rol !== 'Administrador') {
-    root.innerHTML = `<section class="card empty">
+    root.innerHTML = `<section class="neu-panel admin-panel empty">
       <h3>Acceso restringido</h3>
       <p class="text-muted">Publicar galería, centros de acopio, noticias e historias solo está disponible para la
       cuenta <strong>Administrador</strong> (el backend real aplica esta misma regla en cada endpoint).</p>
@@ -41,19 +41,19 @@ export async function mountContenido(root) {
         <p class="text-muted text-sm cnt-lead">Todo lo que publiques aquí es visible de inmediato en el sitio de
         visitantes. Elige qué quieres publicar:</p>
         <div class="tabs" id="cnt-tabs" role="tablist">
-          <button class="tab is-active" type="button" data-tab="foto" role="tab" aria-selected="true">
+          <button class="tab is-active" type="button" id="cnt-tab-foto" data-tab="foto" role="tab" aria-selected="true" aria-controls="cnt-panel-foto">
             <span class="tab-ico tab-ico--e">${TAB_SVG.foto}</span> Foto de comunidad</button>
-          <button class="tab" type="button" data-tab="centro" role="tab" aria-selected="false">
+          <button class="tab" type="button" id="cnt-tab-centro" data-tab="centro" role="tab" aria-selected="false" aria-controls="cnt-panel-centro" tabindex="-1">
             <span class="tab-ico tab-ico--b">${TAB_SVG.centro}</span> Centro de acopio</button>
-          <button class="tab" type="button" data-tab="noticia" role="tab" aria-selected="false">
+          <button class="tab" type="button" id="cnt-tab-noticia" data-tab="noticia" role="tab" aria-selected="false" aria-controls="cnt-panel-noticia" tabindex="-1">
             <span class="tab-ico tab-ico--a">${TAB_SVG.noticia}</span> Noticia</button>
-          <button class="tab" type="button" data-tab="historia" role="tab" aria-selected="false">
+          <button class="tab" type="button" id="cnt-tab-historia" data-tab="historia" role="tab" aria-selected="false" aria-controls="cnt-panel-historia" tabindex="-1">
             <span class="tab-ico tab-ico--c">${TAB_SVG.historia}</span> Historia</button>
         </div>
       </div>
 
       <div class="cnt-body">
-      <div class="cnt-panel is-active" data-panel="foto">
+      <div class="cnt-panel is-active" id="cnt-panel-foto" data-panel="foto" role="tabpanel" aria-labelledby="cnt-tab-foto" tabindex="0">
         <div class="cnt-split">
           <form id="cnt-foto-form" novalidate>
             <label class="field" style="margin-bottom:14px">
@@ -68,7 +68,7 @@ export async function mountContenido(root) {
               <span>Archivo de imagen (JPG, PNG, WEBP o GIF, máx. 5 MB)</span>
               <input name="file" id="cnt-foto-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required />
             </label>
-            <button type="submit" class="btn btn--emerald btn--block">Publicar en la galería</button>
+            <button type="submit" class="neu-btn neu-btn--emerald neu-btn--block">Publicar en la galería</button>
           </form>
           <div>
             <div class="section-head" style="margin-bottom:12px">
@@ -80,7 +80,7 @@ export async function mountContenido(root) {
         </div>
       </div>
 
-      <div class="cnt-panel" data-panel="centro">
+      <div class="cnt-panel" id="cnt-panel-centro" data-panel="centro" role="tabpanel" aria-labelledby="cnt-tab-centro" tabindex="0">
         <div class="cnt-split">
           <form id="cnt-centro-form" novalidate>
             <div class="form-grid">
@@ -95,7 +95,7 @@ export async function mountContenido(root) {
               <label class="field"><span>Longitud</span>
                 <input name="longitud" type="number" step="0.000001" required placeholder="-96.7266" /></label>
             </div>
-            <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Agregar centro</button>
+            <button type="submit" class="neu-btn neu-btn--emerald neu-btn--block" style="margin-top:14px">Agregar centro</button>
           </form>
           <div>
             <h4 style="font-size:14px;margin-bottom:12px">Centros ya registrados</h4>
@@ -104,7 +104,7 @@ export async function mountContenido(root) {
         </div>
       </div>
 
-      <div class="cnt-panel" data-panel="noticia">
+      <div class="cnt-panel" id="cnt-panel-noticia" data-panel="noticia" role="tabpanel" aria-labelledby="cnt-tab-noticia" tabindex="0">
         <form id="cnt-noticia-form" novalidate class="cnt-form-solo">
           <div class="form-grid">
             <label class="field col-span-2"><span>Título</span>
@@ -128,11 +128,11 @@ export async function mountContenido(root) {
             <label class="field col-span-2"><span>URL de imagen (opcional)</span>
               <input name="img_url" type="url" placeholder="https://…" /></label>
           </div>
-          <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Publicar noticia</button>
+          <button type="submit" class="neu-btn neu-btn--emerald neu-btn--block" style="margin-top:14px">Publicar noticia</button>
         </form>
       </div>
 
-      <div class="cnt-panel" data-panel="historia">
+      <div class="cnt-panel" id="cnt-panel-historia" data-panel="historia" role="tabpanel" aria-labelledby="cnt-tab-historia" tabindex="0">
         <form id="cnt-historia-form" novalidate class="cnt-form-solo">
           <div class="form-grid">
             <label class="field col-span-2"><span>Título</span>
@@ -150,18 +150,36 @@ export async function mountContenido(root) {
             <label class="field"><span>URL de imagen (opcional)</span>
               <input name="img_url" type="url" placeholder="https://…" /></label>
           </div>
-          <button type="submit" class="btn btn--emerald btn--block" style="margin-top:14px">Publicar historia</button>
+          <button type="submit" class="neu-btn neu-btn--emerald neu-btn--block" style="margin-top:14px">Publicar historia</button>
         </form>
       </div>
       </div>
     </section>`;
 
-  document.getElementById('cnt-tabs').addEventListener('click', (e) => {
-    const btn = e.target.closest('.tab');
-    if (!btn) return;
-    document.querySelectorAll('#cnt-tabs .tab').forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); });
-    btn.classList.add('is-active'); btn.setAttribute('aria-selected', 'true');
+  const cntTabs = document.getElementById('cnt-tabs');
+  const tabButtons = () => [...cntTabs.querySelectorAll('.tab')];
+  function activateTab(btn) {
+    tabButtons().forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected', 'false'); t.tabIndex = -1; });
+    btn.classList.add('is-active'); btn.setAttribute('aria-selected', 'true'); btn.tabIndex = 0;
     document.querySelectorAll('.cnt-panel').forEach(p => p.classList.toggle('is-active', p.dataset.panel === btn.dataset.tab));
+  }
+  cntTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (btn) activateTab(btn);
+  });
+  // Patrón WAI-ARIA Tabs: flechas mueven el foco Y activan la pestaña
+  // (no solo el clic) -- antes solo se podía cambiar de pestaña con mouse.
+  cntTabs.addEventListener('keydown', (e) => {
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+    const tabs = tabButtons();
+    const i = tabs.indexOf(document.activeElement);
+    if (i === -1) return;
+    e.preventDefault();
+    const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length]
+      : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length]
+      : e.key === 'Home' ? tabs[0] : tabs[tabs.length - 1];
+    activateTab(next);
+    next.focus();
   });
 
   runViewAnimations(root, () => {
@@ -189,7 +207,7 @@ export async function mountContenido(root) {
       form.reset(); selFoto.value = comunidadId;
       loadGrid(comunidadId);
     } catch (err) {
-      alert(`No se pudo subir la foto: ${err.message}`);
+      showError(err.message, 'No se pudo subir la foto');
     } finally {
       btn.disabled = false; btn.textContent = 'Publicar en la galería';
     }
@@ -242,7 +260,7 @@ export async function mountContenido(root) {
       form.reset();
       loadCentros();
     } catch (err) {
-      alert(`No se pudo agregar el centro: ${err.message}`);
+      showError(err.message, 'No se pudo agregar el centro');
     } finally {
       btn.disabled = false; btn.textContent = 'Agregar centro';
     }
@@ -269,9 +287,9 @@ export async function mountContenido(root) {
     try {
       await api.crearNoticia(payload);
       form.reset();
-      alert('Noticia publicada. Ya es visible en el sitio público.');
+      showSuccess('Ya es visible en el sitio público.', 'Noticia publicada');
     } catch (err) {
-      alert(`No se pudo publicar la noticia: ${err.message}`);
+      showError(err.message, 'No se pudo publicar la noticia');
     } finally {
       btn.disabled = false; btn.textContent = 'Publicar noticia';
     }
@@ -297,9 +315,9 @@ export async function mountContenido(root) {
     try {
       await api.crearHistoria(payload);
       form.reset();
-      alert('Historia publicada. Ya es visible en el sitio público.');
+      showSuccess('Ya es visible en el sitio público.', 'Historia publicada');
     } catch (err) {
-      alert(`No se pudo publicar la historia: ${err.message}`);
+      showError(err.message, 'No se pudo publicar la historia');
     } finally {
       btn.disabled = false; btn.textContent = 'Publicar historia';
     }

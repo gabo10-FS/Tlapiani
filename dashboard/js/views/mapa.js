@@ -7,10 +7,10 @@
    - Popup con botón "Asignar lote".
    ============================================================ */
 
-import { api } from '../api.js';
-import { esc, scoreBadge, openDialog, closeDialog, skeleton } from './ui.js';
-import { buildPriorityMap, colorFor } from '../mapCommon.js?v=20260831e';
-import { runViewAnimations, enterPanel, enterStagger, refreshScroll } from '../animations.js';
+import { api } from '../api.js?v=redesign2';
+import { esc, scoreBadge, openDialog, closeDialog, skeleton, showError } from './ui.js?v=redesign1';
+import { buildPriorityMap, colorFor } from '../mapCommon.js?v=redesign5';
+import { runViewAnimations, enterPanel, enterStagger, refreshScroll } from '../animations.js?v=redesign3';
 
 export async function mountMapa(root) {
   root.innerHTML = `
@@ -60,12 +60,12 @@ export async function mountMapa(root) {
     });
 
     document.getElementById('btn-cercanos').addEventListener('click', () => {
-      if (!centros.length) { alert('Todavía no hay centros de acopio registrados. Agrega uno desde "Contenido público".'); return; }
+      if (!centros.length) { showError('Todavía no hay centros de acopio registrados. Agrega uno desde "Contenido público".'); return; }
       const badge = document.getElementById('map-count');
       badge.textContent = 'Localizando…';
       addCentrosCercanos(centros, (res) => {
         badge.textContent = `${comunidades.length} comunidades`;
-        if (res.error) { alert(res.error); return; }
+        if (res.error) { showError(res.error); return; }
       });
     });
     refreshScroll();

@@ -5,14 +5,14 @@
    - Tabla de bienes con filtros de búsqueda rápida.
    ============================================================ */
 
-import { api } from '../api.js';
-import { esc, estadoBadge, skeleton, openDialog, closeDialog } from './ui.js';
-import { runViewAnimations, enterStagger, enterPanel, revealOnScroll, refreshScroll } from '../animations.js';
+import { api } from '../api.js?v=redesign2';
+import { esc, estadoBadge, skeleton, openDialog, closeDialog, showError } from './ui.js?v=redesign1';
+import { runViewAnimations, enterStagger, enterPanel, revealOnScroll } from '../animations.js?v=redesign3';
 
 export async function mountInventario(root) {
   root.innerHTML = `
     <div class="grid-2">
-      <section class="card" id="inv-form-card">
+      <section class="neu-panel admin-panel" id="inv-form-card">
         <div class="section-head"><h3>Registrar entrada de bienes</h3></div>
         <form id="inv-form" novalidate>
           <div class="form-grid">
@@ -49,14 +49,18 @@ export async function mountInventario(root) {
               </select>
             </label>
           </div>
-          <div class="dialog__footer" style="margin-top:18px">
-            <button type="reset" class="btn btn--ghost">Limpiar</button>
-            <button type="submit" class="btn btn--emerald">Registrar lote</button>
+          <p id="inv-sin-origen" class="form-error" hidden>
+            No hay centros de acopio registrados todavía. Registra uno primero en
+            <a href="#/contenido" class="hash">Contenido público</a>.
+          </p>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+            <button type="reset" class="neu-btn">Limpiar</button>
+            <button type="submit" class="neu-btn neu-btn--emerald">Registrar lote</button>
           </div>
         </form>
       </section>
 
-      <section class="card" id="inv-stats-card">
+      <section class="neu-panel admin-panel" id="inv-stats-card">
         <div class="section-head"><h3>Resumen</h3></div>
         <div class="stat-grid" id="inv-stats">${skeleton(2)}</div>
         <p class="text-muted text-xs" style="margin-top:16px">
@@ -66,7 +70,7 @@ export async function mountInventario(root) {
       </section>
     </div>
 
-    <section class="card" id="inv-table-card" style="margin-top:18px">
+    <section class="neu-panel admin-panel" id="inv-table-card" style="margin-top:18px">
       <div class="toolbar">
         <input class="search" id="inv-search" type="search" placeholder="Buscar por tipo de bien o comunidad…" />
         <span class="badge badge--blue" id="inv-count">0 lotes</span>
@@ -96,6 +100,14 @@ export async function mountInventario(root) {
   document.getElementById('sel-origen').innerHTML =
     `<option value="">Selecciona…</option>` +
     centros.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  // Sin centros de acopio el <select required> nunca puede validar, y el
+  // navegador solo muestra un tooltip nativo genérico al enviar -- se
+  // avisa explícitamente por qué, con un enlace directo a resolverlo.
+  if (!centros.length) {
+    const warn = document.getElementById('inv-sin-origen');
+    warn.hidden = false;
+    document.querySelector('#inv-form button[type="submit"]').disabled = true;
+  }
 
   let data = lotes;
   renderStats(data);
@@ -135,7 +147,7 @@ export async function mountInventario(root) {
       renderTable(data);
       showCreated(nuevo);
     } catch (err) {
-      alert(`No se pudo registrar el lote: ${err.message}`);
+      showError(err.message, 'No se pudo registrar el lote');
     } finally {
       btn.disabled = false; btn.textContent = 'Registrar lote';
     }
@@ -153,9 +165,9 @@ export async function mountInventario(root) {
     const total = rows.reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
     const enRuta = rows.filter(l => l.estado === 'En Ruta').length;
     document.getElementById('inv-stats').innerHTML = `
-      <div class="stat card"><div class="stat__label">Lotes activos</div><div class="stat__value">${rows.length}</div></div>
-      <div class="stat card"><div class="stat__label">Unidades totales</div><div class="stat__value">${total.toLocaleString('es-MX')}</div></div>
-      <div class="stat card"><div class="stat__label">En ruta</div><div class="stat__value">${enRuta}</div></div>`;
+      <div class="stat neu-metric"><div class="stat__label">Lotes activos</div><div class="stat__value">${rows.length}</div></div>
+      <div class="stat neu-metric"><div class="stat__label">Unidades totales</div><div class="stat__value">${total.toLocaleString('es-MX')}</div></div>
+      <div class="stat neu-metric"><div class="stat__label">En ruta</div><div class="stat__value">${enRuta}</div></div>`;
   }
 
   function renderTable(rows) {
@@ -175,7 +187,11 @@ export async function mountInventario(root) {
         <td><span class="badge badge--${estadoBadge(l.estado)}">${esc(l.estado)}</span></td>
         <td>${esc(l.fecha)}</td>
       </tr>`).join('');
-    refreshScroll();
+    // revealOnScroll(), no solo refreshScroll(): las filas de arriba son
+    // <tr> nuevos (innerHTML reemplazó los anteriores), así que hace
+    // falta volver a registrarlas para el reveal-on-scroll, no solo
+    // reposicionar los triggers de las filas viejas que ya no existen.
+    revealOnScroll('#inv-tbody tr');
   }
 
   function showCreated(l) {

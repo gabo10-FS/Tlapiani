@@ -26,7 +26,7 @@
    porque no existe GET /api/v1/donaciones para listar todos los lotes.
    ============================================================ */
 
-import { TIPOS_BIEN, LOTES } from './mock/data.js';
+import { TIPOS_BIEN } from './mock/data.js';
 
 const TOKEN_KEY = 'tlapiani_jwt';
 const USER_KEY = 'tlapiani_user';
@@ -107,7 +107,10 @@ async function request(path, { method = 'GET', body, auth: needsAuth = true } = 
 
 /* ---------------- Helpers ---------------- */
 const delay = (ms = 260) => new Promise(r => setTimeout(r, ms));
-let lotesDB = [...LOTES];
+// Caché de sesión, no datos reales: no existe GET /api/v1/donaciones para
+// listar todos los lotes, así que empieza vacío y se llena con lo que esta
+// sesión crea/despacha (ver comentario del bloque MODO DE CONEXIÓN arriba).
+let lotesDB = [];
 
 /* SHA-256 real vía Web Crypto (se usa en algunas vistas para armar el JSON del QR) */
 export async function sha256(text) {

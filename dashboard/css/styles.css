@@ -14,6 +14,12 @@
   --accent-amber: hsl(35, 92%, 50%);
   --accent-crimson: hsl(355, 78%, 56%);
   --accent-blue: hsl(205, 85%, 55%);
+  /* --accent-crimson como TEXTO plano en dark mode no llega a 4.5:1 de
+     contraste ni contra --bg-primary (medí 4.43:1) -- crítico en
+     .form-error, el mensaje de validación de formularios. Token aparte
+     solo para texto, sin tocar el crimson de fondos/badges/dots que ya
+     funciona bien tal cual. */
+  --accent-crimson-text: hsl(355, 78%, 72%);
 
   --glass-border: hsla(210, 20%, 100%, 0.06);
   --glass-bg: hsla(220, 12%, 14%, 0.6);
@@ -40,6 +46,9 @@
   --accent-amber: hsl(35, 85%, 40%);
   --accent-crimson: hsl(355, 75%, 45%);
   --accent-blue: hsl(205, 85%, 45%);
+  /* En claro el crimson normal ya pasa contraste como texto (~5.7:1 sobre
+     blanco) -- el token de texto no necesita ser distinto aquí. */
+  --accent-crimson-text: hsl(355, 75%, 45%);
 
   --glass-border: hsla(220, 15%, 10%, 0.08);
   --glass-bg: hsla(0, 0%, 100%, 0.7);
@@ -52,6 +61,14 @@
 /* ---------- Reset ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
+/* .map-split usa el truco full-bleed 100vw/margin-left:calc(50%-50vw) para
+   que el mapa rompa el max-width del layout -- ese truco por diseño se
+   sale ~7-17px (el ancho de la scrollbar) del viewport real. En vez de
+   evitarlo con el patrón de banda "tint" (como en .pub-section--tint, ver
+   CLAUDE.md), se corta aquí a nivel body: es el único uso de 100vw en
+   todo el proyecto y no hay ningún contenido que necesite scroll
+   horizontal real a nivel de página. */
+body { overflow-x: hidden; }
 body {
   margin: 0;
   font-family: var(--font);
@@ -75,13 +92,15 @@ button { font-family: inherit; }
 
 /* ---------- Glass cards ---------- */
 .card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* Único user real hoy: transparencia.js. (news-card/hist-card ya no
+     cargan esta clase -- ver abajo -- para no chocar con el override
+     "liquid glass" de body[data-mode="public"] .card, de mayor
+     especificidad, que dejaba esta regla sin efecto ahí). */
+  background: var(--bg-secondary);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
+  border-radius: 22px;
   padding: 24px;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
 }
 
 /* ---------- Layout shell ---------- */
@@ -193,44 +212,43 @@ input:user-invalid, select:user-invalid {
   box-shadow: 0 0 0 3px hsla(355, 78%, 56%, 0.15);
 }
 input:user-valid, select:user-valid { border-color: var(--accent-emerald); }
-.form-error { color: var(--accent-crimson); font-size: 13px; margin: 4px 0 0; }
+.form-error { color: var(--accent-crimson-text); font-size: 13px; margin: 4px 0 0; }
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 .form-grid .col-span-2 { grid-column: 1 / -1; }
 
 /* ---------- Contenido público: banda de color + pestañas, en vez de
-   4 tarjetas blancas sueltas o de un solo bloque plano sin vida ---------- */
-.cnt-shell { border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-soft); }
+   4 tarjetas blancas sueltas o de un solo bloque plano sin vida ----------
+   Actualizado a neumorphism: sombra dual en vez del gradiente + glass
+   original, para que coincida con el resto del admin ya rediseñado. */
+.cnt-shell {
+  border-radius: 22px; overflow: hidden;
+  box-shadow: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
+}
 .cnt-header {
   padding: 28px 28px 0;
-  background:
-    linear-gradient(120deg, hsla(145,63%,42%,.24), hsla(205,85%,55%,.16) 60%, transparent),
-    var(--bg-secondary);
+  background: var(--bg-secondary);
   border: 1px solid var(--glass-border); border-bottom: none;
-  border-radius: var(--radius) var(--radius) 0 0;
 }
 .cnt-header h3 { font-size: 19px; }
 .cnt-header p { margin: 0 0 20px; }
 .cnt-body {
   border: 1px solid var(--glass-border); border-top: none;
-  border-radius: 0 0 var(--radius) var(--radius);
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   padding: 28px 28px 30px;
 }
-.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .tab {
   display: inline-flex; align-items: center; gap: 9px;
-  background: hsla(0,0%,100%,.06); border: 1px solid transparent; cursor: pointer;
-  padding: 9px 18px 9px 10px; font-size: 13.5px; font-weight: 600; font-family: inherit;
-  color: var(--text-muted); border-radius: 999px 999px 0 0;
-  transform: translateY(1px);
-  transition: color .15s ease, background-color .15s ease, transform .15s ease;
+  background: var(--bg-secondary); border: none; cursor: pointer;
+  padding: 10px 18px 10px 10px; font-size: 13.5px; font-weight: 600; font-family: inherit;
+  color: var(--text-muted); border-radius: 14px;
+  box-shadow: 4px 4px 10px var(--neu-dark), -4px -4px 10px var(--neu-light);
+  transition: color .15s ease, box-shadow .15s ease;
 }
-[data-theme="light"] .tab { background: hsla(220,20%,10%,.04); }
 .tab:hover { color: var(--text-main); }
 .tab.is-active {
-  color: var(--text-main); background: var(--glass-bg);
-  border-color: var(--glass-border); border-bottom-color: transparent;
-  transform: translateY(0);
+  color: var(--text-main);
+  box-shadow: inset 3px 3px 8px var(--neu-dark), inset -3px -3px 8px var(--neu-light);
 }
 .tab-ico {
   width: 24px; height: 24px; border-radius: 50%; flex: none;
@@ -257,7 +275,7 @@ input:user-valid, select:user-valid { border-color: var(--accent-emerald); }
 }
 .badge--emerald { background: hsla(145,63%,42%,.15); color: var(--accent-emerald); border-color: hsla(145,63%,42%,.3); }
 .badge--amber   { background: hsla(35,92%,50%,.15);  color: var(--accent-amber);   border-color: hsla(35,92%,50%,.3); }
-.badge--crimson { background: hsla(355,78%,56%,.15); color: var(--accent-crimson); border-color: hsla(355,78%,56%,.3); }
+.badge--crimson { background: hsla(355,78%,56%,.15); color: var(--accent-crimson-text); border-color: hsla(355,78%,56%,.3); }
 .badge--blue    { background: hsla(205,85%,55%,.15); color: var(--accent-blue);    border-color: hsla(205,85%,55%,.3); }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot--emerald { background: var(--accent-emerald); }
@@ -498,50 +516,20 @@ body[data-mode="public"] .app-shell { padding: 76px 0 0; }
 .public-links a:hover { background: var(--bg-tertiary); color: var(--text-main); }
 .public-nav__actions { display: flex; align-items: center; gap: 10px; }
 
-/* ---------- Landing / hero de bienvenida ---------- */
+/* ---------- Bienvenida: portada de bitácora ---------- */
 .landing {
   position: relative; min-height: 100vh;
   display: grid; place-items: center; padding: 40px 24px;
-  overflow: hidden; text-align: center;
 }
-.landing__bg {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(60% 50% at 50% 0%, hsla(145, 63%, 42%, 0.18), transparent 70%),
-    radial-gradient(50% 50% at 85% 90%, hsla(205, 85%, 55%, 0.16), transparent 70%),
-    radial-gradient(40% 40% at 12% 80%, hsla(35, 92%, 50%, 0.10), transparent 70%);
-}
-.landing__inner { position: relative; z-index: 1; max-width: 760px; }
-.landing__badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500;
-  color: var(--accent-emerald);
-  background: hsla(145,63%,42%,.12); border: 1px solid hsla(145,63%,42%,.3);
-  margin-bottom: 26px;
-}
-.landing__logo {
-  width: 74px; height: 74px; border-radius: 20px; margin: 0 auto 22px;
-  display: grid; place-items: center; font-size: 34px; color: #fff;
-  background: linear-gradient(135deg, var(--accent-emerald), var(--accent-blue));
-  box-shadow: 0 12px 40px hsla(145,63%,42%,.35);
-}
-.landing h1 {
-  font-size: clamp(34px, 6vw, 58px); font-weight: 800; line-height: 1.05;
-  letter-spacing: -0.02em; margin-bottom: 8px;
-}
-.landing h1 .accent {
-  background: linear-gradient(120deg, var(--accent-emerald), var(--accent-blue));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.landing__tagline { font-size: 15px; color: var(--text-muted); letter-spacing: .02em; margin-bottom: 10px; }
-.landing__lead { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-muted); max-width: 620px; margin: 0 auto 34px; line-height: 1.6; }
+.landing__inner { position: relative; z-index: 1; max-width: 640px; width: 100%; }
+.landing__theme { position: absolute; top: 20px; right: 22px; z-index: 2; }
 .landing__cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .btn--lg { padding: 16px 30px; font-size: 15.5px; border-radius: 999px; font-weight: 700; }
-.landing__meta { margin-top: 40px; display: flex; gap: 34px; justify-content: center; flex-wrap: wrap; }
-.landing__meta .m { text-align: center; }
-.landing__meta .m b { display: block; font-size: 26px; font-weight: 700; }
-.landing__meta .m span { font-size: 12.5px; color: var(--text-muted); }
-.landing__theme { position: absolute; top: 20px; right: 22px; z-index: 2; }
+
+.log-cover__id { display: flex; align-items: center; gap: 16px; margin-bottom: 30px; }
+.log-cover__name { font-size: 18px; letter-spacing: .02em; }
+.log-cover__h1 { font-size: clamp(32px, 5.5vw, 50px); line-height: 1.08; max-width: 12ch; }
+.log-cover__entries { margin-top: 32px; }
 
 /* ---------- Secciones del sitio publico ---------- */
 .pub { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
@@ -553,15 +541,15 @@ body[data-mode="public"] .app-shell { padding: 76px 0 0; }
 .pub-section h3, .map-split__info h3 { font-size: clamp(24px, 3.5vw, 34px); font-weight: 700; margin: 10px 0 12px; letter-spacing: -0.01em; }
 .pub-lead { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; max-width: 720px; }
 .mv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
-.mv-card { padding: 30px; border-top: 3px solid var(--accent-emerald); }
+.mv-card { padding: 28px; border-top: 3px solid var(--accent-emerald); }
 .mv-card:nth-child(2) { border-top-color: var(--accent-blue); }
 .mv-card h4 { font-size: 19px; margin-bottom: 10px; }
 .mv-card p { color: var(--text-muted); line-height: 1.6; font-size: 15px; }
 .obj-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 30px; }
-.obj-card { padding: 26px; }
+.obj-card { padding: 28px; }
 .obj-num {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 10px;
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
   font-size: 13px; font-weight: 700; color: #fff;
   background: linear-gradient(135deg, var(--accent-emerald), var(--accent-blue));
 }
@@ -572,8 +560,10 @@ body[data-mode="public"] .app-shell { padding: 76px 0 0; }
 .obj-card p { color: var(--text-muted); font-size: 14.5px; line-height: 1.55; }
 .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 30px; }
 .feat-card { padding: 28px; transition: transform .25s ease, box-shadow .25s ease; }
-.feat-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lift); }
-.feat-ico { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; margin-bottom: 14px; }
+@media (hover: hover) and (pointer: fine) {
+  .feat-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lift); }
+}
+.feat-ico { width: 46px; height: 46px; border-radius: var(--radius-sm); display: grid; place-items: center; font-size: 22px; margin-bottom: 14px; }
 .feat-ico.e { background: hsla(145,63%,42%,.14); color: var(--accent-emerald); }
 .feat-ico.b { background: hsla(205,85%,55%,.14); color: var(--accent-blue); }
 .feat-ico.a { background: hsla(35,92%,50%,.14); color: var(--accent-amber); }
@@ -688,6 +678,11 @@ html[data-theme="light"] body[data-mode="public"] .pub-section--tint {
 /* Respeto a reduced-motion (GSAP tambien lo maneja) */
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
+  /* Estas dos quedaban fuera de los otros bloques reduced-motion del
+     archivo: el bob del hint de scroll es movimiento continuo, y el
+     shimmer del skeleton sigue corriendo con la app ya interactiva. */
+  .hero-scroll-hint { animation: none; }
+  .skeleton { animation: none; background-position: 0 0; }
 }
 
 /* ============================================================
@@ -875,7 +870,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 .news-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lift); }
 .news-img { height: 152px; background-size: cover; background-position: center; position: relative; background-color: var(--bg-tertiary); }
 .news-img .badge { position: absolute; top: 12px; left: 12px; }
-.news-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.news-body { padding: 20px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .news-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
 .news-body h4 { font-size: 16.5px; line-height: 1.3; }
 .news-body p { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
@@ -888,10 +883,10 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 .hist-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; transition: transform .25s ease, box-shadow .25s ease; }
 .hist-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lift); }
 .hist-img { height: 184px; background-size: cover; background-position: center; background-color: var(--bg-tertiary); }
-.hist-body { padding: 22px; display: flex; flex-direction: column; gap: 8px; }
+.hist-body { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
 .hist-body h4 { font-size: 19px; }
 .hist-body > p { color: var(--text-muted); font-size: 14.5px; line-height: 1.55; }
-.hist-quote { margin: 10px 0 0; padding: 12px 16px; border-left: 3px solid var(--accent-emerald); background: var(--bg-tertiary); border-radius: 0 10px 10px 0; font-style: italic; font-size: 14px; }
+.hist-quote { margin: 10px 0 0; padding: 12px 16px; background: var(--bg-tertiary); border-radius: 10px; font-style: italic; font-size: 14px; }
 .hist-quote cite { display: block; margin-top: 6px; font-style: normal; font-size: 12.5px; color: var(--text-muted); }
 
 /* ============================================================
@@ -1026,7 +1021,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 
 .cpanel__block h5 { font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
 .res-icons { display: flex; gap: 10px; }
-.res-ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; }
+.res-ico { width: 42px; height: 42px; border-radius: var(--radius-sm); display: grid; place-items: center; }
 .res-ico svg { width: 22px; height: 22px; }
 .res-ico.crimson { background: hsla(355,78%,56%,.14); color: var(--accent-crimson); }
 .res-ico.blue { background: hsla(205,85%,55%,.14); color: var(--accent-blue); }
@@ -1083,7 +1078,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
   background: linear-gradient(120deg, hsla(145,63%,42%,.16), transparent 70%), var(--glass-bg);
 }
 .xp-tab__n {
-  flex: none; width: 28px; height: 28px; border-radius: 9px;
+  flex: none; width: 28px; height: 28px; border-radius: var(--radius-sm);
   display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff;
   background: linear-gradient(135deg, var(--accent-emerald), var(--accent-blue));
 }
@@ -1154,7 +1149,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 .xp-sello.ok { border-color: hsla(145,63%,42%,.5); }
 .xp-sello.ok .xp-sello__veredicto, .xp-sello.ok .xp-sello__eq { color: var(--accent-emerald); }
 .xp-sello.bad { border-color: hsla(355,78%,56%,.5); }
-.xp-sello.bad .xp-sello__veredicto, .xp-sello.bad .xp-sello__eq { color: var(--accent-crimson); }
+.xp-sello.bad .xp-sello__veredicto, .xp-sello.bad .xp-sello__eq { color: var(--accent-crimson-text); }
 
 /* --- ruta del donativo --- */
 .xp-chips { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -1281,7 +1276,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 .jz-sello.ok { border-color: hsla(145,63%,42%,.55); background: hsla(145,63%,42%,.07); }
 .jz-sello.ok .jz-sello__op { color: var(--accent-emerald); }
 .jz-sello.bad { border-color: hsla(355,78%,56%,.55); background: hsla(355,78%,56%,.07); }
-.jz-sello.bad .jz-sello__op { color: var(--accent-crimson); }
+.jz-sello.bad .jz-sello__op { color: var(--accent-crimson-text); }
 .jz-sello.neutro { justify-content: center; opacity: .65; }
 
 .jz-marca {
@@ -1291,7 +1286,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
   animation: jz-pop .3s ease both;
 }
 .jz-marca.ok { background: hsla(145,63%,42%,.18); color: var(--accent-emerald); }
-.jz-marca.mal { background: hsla(355,78%,56%,.18); color: var(--accent-crimson); }
+.jz-marca.mal { background: hsla(355,78%,56%,.18); color: var(--accent-crimson-text); }
 @keyframes jz-pop { from { opacity: 0; transform: scale(.8) translateY(6px); } }
 
 .jz-tiempo {
@@ -1304,7 +1299,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 }
 .jz-acciones { display: flex; gap: 12px; }
 .jz-btn { flex: 1; padding: 14px 18px; font-size: 15px; }
-.jz-no { border-color: hsla(355,78%,56%,.5); color: var(--accent-crimson); background: transparent; }
+.jz-no { border-color: hsla(355,78%,56%,.5); color: var(--accent-crimson-text); background: transparent; }
 .jz-no:hover { background: hsla(355,78%,56%,.1); }
 
 @media (max-width: 620px) {
@@ -1408,11 +1403,11 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
   border: 1px solid var(--glass-border); background: var(--bg-secondary);
 }
 .tri-fila.top { border-color: hsla(145,63%,42%,.55); }
-.tri-fila.mia { box-shadow: inset 3px 0 0 var(--accent-blue); }
+.tri-fila.mia { background: hsla(205,85%,55%,.08); border-color: hsla(205,85%,55%,.4); }
 .tri-fila__id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .tri-fila__ind { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11.5px; color: var(--text-muted); }
 .tri-fila__ind span { padding: 2px 8px; border-radius: 999px; background: var(--bg-tertiary); }
-.tri-fila__ind .alto { background: hsla(355,78%,56%,.18); color: var(--accent-crimson); font-weight: 700; }
+.tri-fila__ind .alto { background: hsla(355,78%,56%,.18); color: var(--accent-crimson-text); font-weight: 700; }
 .tri-fila__score { display: flex; align-items: center; gap: 10px; }
 .tri-fila__score .xp-barra__riel { flex: 1; }
 .tri-tag {
@@ -1442,10 +1437,14 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
   position: relative; overflow: hidden;
 }
 .rs-flujo {
-  position: absolute; inset: 0; width: 0; border-radius: 999px;
+  /* scaleX en vez de width: la barra de "flujo" del minijuego anima en
+     cada intento, así que animar una propiedad de layout aquí generaba
+     thrash con cada repetición. transform es composición pura. */
+  position: absolute; inset: 0; border-radius: 999px;
   background: linear-gradient(90deg, var(--accent-emerald), var(--accent-blue));
+  transform: scaleX(0); transform-origin: left;
 }
-.rs-tramo.fluye .rs-flujo { width: 100%; transition: width .5s linear; }
+.rs-tramo.fluye .rs-flujo { transform: scaleX(1); transition: transform .5s linear; }
 .rs-tramo.fuga .rs-flujo { background: var(--accent-crimson); animation: rs-gotea .7s ease-in-out infinite; }
 @keyframes rs-gotea { 50% { opacity: .35; } }
 
@@ -1469,7 +1468,7 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 .rs-nodo.is-ok { border-color: var(--accent-emerald); background: hsla(145,63%,42%,.08); }
 .rs-nodo.is-ok .rs-slot { background: hsla(145,63%,42%,.2); color: var(--accent-emerald); }
 .rs-nodo.is-fuga { border-color: var(--accent-crimson); background: hsla(355,78%,56%,.09); }
-.rs-nodo.is-fuga .rs-slot { background: hsla(355,78%,56%,.2); color: var(--accent-crimson); }
+.rs-nodo.is-fuga .rs-slot { background: hsla(355,78%,56%,.2); color: var(--accent-crimson-text); }
 .rs-candado {
   position: absolute; top: -11px; right: -9px; width: 22px; height: 22px;
   color: var(--accent-emerald); background: var(--bg-primary);
@@ -1498,8 +1497,8 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
   .rs-linea { flex-direction: column; align-items: stretch; gap: 0; overflow-x: visible; }
   .rs-extremo { flex-direction: row; min-width: 0; justify-content: flex-start; gap: 10px; }
   .rs-tramo { width: 8px; height: 26px; flex: none; align-self: flex-start; margin-left: 13px; }
-  .rs-flujo { width: 100% !important; height: 0; transition: none; }
-  .rs-tramo.fluye .rs-flujo { height: 100%; transition: height .5s linear; }
+  .rs-flujo { transform: scaleY(0); transform-origin: top; transition: none; }
+  .rs-tramo.fluye .rs-flujo { transform: scaleY(1); transition: transform .5s linear; }
   .rs-nodo { width: 100%; align-items: flex-start; }
   .rs-nodo__sub { text-align: left; }
   .rs-chips { grid-template-columns: 1fr; }
@@ -1509,4 +1508,224 @@ body[data-mode="public"] [id^="sec-"] { scroll-margin-top: 96px; }
 @media (prefers-reduced-motion: reduce) {
   .tri-pulso { animation: none; opacity: .5; }
   .rs-tramo.fuga .rs-flujo { animation: none; }
+}
+
+/* ============================================================
+   BITÁCORA NÁUTICA — mundo visual del rediseño
+   Renglones con regla horizontal en vez de tarjetas de vidrio con
+   sombra suave; el sello es una marca subordinada al margen, nunca
+   el centro de la composición; monoespaciada reservada a datos
+   reales (folios, hashes, conteos) -- nunca como disfraz de "lo
+   técnico". Deliberadamente NO toca .card/.btn/.badge/.pub-eyebrow:
+   el hero (#sec-top) y el mapa (#sec-mapa) de publico.js quedan
+   intactos por pedido explícito y siguen usando esas clases tal
+   cual. Estas son clases nuevas, paralelas, para bienvenida.js, el
+   resto de publico.js y las vistas admin.
+   ============================================================ */
+.log-shell { border-top: 1px solid var(--glass-border); }
+.log-shell--tint {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-border);
+  padding: 8px clamp(20px, 4vw, 40px) 4px;
+}
+.log-entry {
+  display: grid; grid-template-columns: 64px 1fr; gap: 4px 24px;
+  padding: 30px 0; border-bottom: 1px solid var(--glass-border);
+}
+.log-entry:last-child { border-bottom: none; }
+.log-entry__no {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px; color: var(--text-muted); padding-top: 3px; letter-spacing: .02em;
+}
+.log-entry__title { font-size: 19px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em; }
+.log-entry__body { color: var(--text-muted); line-height: 1.6; font-size: 15px; max-width: 62ch; }
+.log-entry__meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--text-muted); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+.log-heading {
+  font-size: clamp(26px, 3.2vw, 36px); font-weight: 700; letter-spacing: -0.01em;
+  margin: 0 0 10px; max-width: 24ch;
+}
+.log-sub { color: var(--text-muted); font-size: 15.5px; line-height: 1.6; max-width: 60ch; margin: 0 0 8px; }
+
+/* Sello: marca circular subordinada, apoyada en el margen del
+   renglón, nunca protagonista ni centrada. */
+.stamp {
+  width: 44px; height: 44px; border-radius: 50%; flex: none;
+  border: 1.5px solid currentColor; display: grid; place-items: center;
+  font-size: 15px; font-weight: 700; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.stamp--emerald { color: var(--accent-emerald); }
+.stamp--amber { color: var(--accent-amber); }
+.stamp--crimson { color: var(--accent-crimson-text); }
+.stamp--blue { color: var(--accent-blue); }
+
+/* Botón de bitácora: rectangular (12px), no pill -- la forma pill
+   queda reservada a controles pequeños (badges, switches) según el
+   propio sistema. No reemplaza a .btn (el hero/mapa preservados lo
+   siguen usando). */
+.btn-log {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px; border-radius: 12px;
+  border: 1px solid var(--glass-border); background: var(--bg-tertiary);
+  color: var(--text-main); font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.btn-log:hover { border-color: var(--accent-blue); }
+.btn-log:active { transform: translateY(1px); }
+.btn-log--emerald { background: var(--accent-emerald); color: #fff; border-color: transparent; }
+.btn-log--ghost { background: transparent; }
+.btn-log--lg { padding: 15px 26px; font-size: 15px; }
+
+@media (max-width: 640px) {
+  .log-entry { grid-template-columns: 1fr; gap: 6px; }
+  .log-entry__no { padding-top: 0; }
+}
+
+/* ---------- Bitácora náutica: panel de admin ----------
+   Reemplaza .card SOLO en las vistas admin (despacho/contenido/
+   inventario/usuarios) -- .card sigue intacto para el mapa público
+   preservado. Sin blur ni sombra flotante: una regla superior en vez
+   de una tarjeta de vidrio, consistente con el resto del rediseño. */
+.log-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-top: 2px solid var(--accent-blue);
+  border-radius: var(--radius-sm);
+  padding: 26px;
+}
+/* Métrica de renglón: evita anidar .card dentro de .log-panel (la
+   propia guía del proyecto prohíbe tarjetas anidadas). */
+.log-metric {
+  padding: 16px 0; border-top: 1px solid var(--glass-border);
+}
+.stat-grid .log-metric:first-child { border-top: none; }
+@media (min-width: 520px) {
+  .stat-grid { display: flex; flex-direction: column; }
+  .log-metric { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 0; }
+  .log-metric .stat__value { font-size: 22px; margin-top: 0; }
+}
+
+/* ============================================================
+   NEUMORPHISM (prueba de concepto, bienvenida.js) — par de sombras
+   duales (clara arriba-izquierda, oscura abajo-derecha) del mismo
+   matiz que el fondo, para simular relieve suave. Elementos claves:
+   .neu-panel (superficie elevada), .neu-panel--pressed (hundida, para
+   estado activo/seleccionado), .neu-btn (botón con feedback táctil
+   real al presionar). Mitigación de contraste: borde de 1px sutil
+   además de las sombras (común en implementaciones reales de
+   neumorphism), para que el límite de cada superficie siga siendo
+   detectable aunque las sombras por sí solas den poco contraste. */
+:root {
+  --neu-light: hsla(210, 25%, 100%, .05);
+  --neu-dark: hsla(220, 60%, 2%, .55);
+}
+[data-theme="light"] {
+  --neu-light: hsla(0, 0%, 100%, .9);
+  --neu-dark: hsla(220, 30%, 60%, .28);
+}
+.neu-panel {
+  background: var(--bg-secondary);
+  border-radius: 22px;
+  border: 1px solid var(--glass-border);
+  padding: 30px;
+  box-shadow:
+    8px 8px 18px var(--neu-dark),
+    -8px -8px 18px var(--neu-light);
+}
+.neu-panel--pressed {
+  box-shadow:
+    inset 6px 6px 14px var(--neu-dark),
+    inset -6px -6px 14px var(--neu-light);
+}
+.neu-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 24px; border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-secondary); color: var(--text-main);
+  font-size: 14.5px; font-weight: 600; cursor: pointer;
+  box-shadow: 5px 5px 12px var(--neu-dark), -5px -5px 12px var(--neu-light);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.neu-btn:hover { box-shadow: 3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light); }
+.neu-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 4px 4px 10px var(--neu-dark), inset -4px -4px 10px var(--neu-light);
+}
+.neu-btn--emerald { color: var(--accent-emerald); }
+.neu-btn--block { width: 100%; justify-content: center; }
+.neu-btn:disabled { opacity: .6; cursor: default; }
+.neu-btn:disabled:hover { box-shadow: 5px 5px 12px var(--neu-dark), -5px -5px 12px var(--neu-light); }
+.neu-stamp {
+  width: 50px; height: 50px; border-radius: 16px; flex: none;
+  display: grid; place-items: center; font-size: 16px; font-weight: 700;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--bg-secondary); color: var(--accent-emerald);
+  box-shadow: 5px 5px 12px var(--neu-dark), -5px -5px 12px var(--neu-light);
+  margin-bottom: 16px;
+}
+.neu-stamp.amber { color: var(--accent-amber); }
+.neu-stamp.blue { color: var(--accent-blue); }
+.neu-stamp.crimson { color: var(--accent-crimson-text); }
+
+.neu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; }
+.neu-grid--2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.neu-panel h3, .neu-panel h4 { font-size: 18px; margin-bottom: 8px; }
+.neu-panel p { color: var(--text-muted); font-size: 14.5px; line-height: 1.6; margin: 0; }
+
+/* Superficie neumórfica también para noticias/historias, en vez del
+   glass-card genérico -- consistencia con el resto del rediseño. */
+.news-card, .hist-card {
+  background: var(--bg-secondary);
+  border-radius: 22px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
+}
+.news-card:hover, .hist-card:hover {
+  transform: none;
+  box-shadow: 5px 5px 12px var(--neu-dark), -5px -5px 12px var(--neu-light);
+}
+
+/* Panel de admin en neumorphism: reemplaza .log-panel (regla superior)
+   de la dirección anterior. Métrica en hueco (inset) en vez de
+   renglón plano -- una "lectura" hundida en la superficie, coherente
+   con el resto del lenguaje neumórfico. */
+.neu-panel.admin-panel {
+  border-top: none;
+  border-radius: 22px;
+  padding: 28px;
+  box-shadow: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
+}
+.neu-metric {
+  border-radius: 14px; padding: 14px 18px;
+  box-shadow: inset 4px 4px 10px var(--neu-dark), inset -4px -4px 10px var(--neu-light);
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.neu-metric + .neu-metric { margin-top: 12px; }
+.neu-metric .stat__value { font-size: 22px; margin-top: 0; }
+
+/* Coherencia dentro de los paneles neumórficos: los inputs eran cajas
+   planas con borde -- rompía la sensación de relieve del panel que
+   los contiene. Hundido (inset), a juego con .neu-metric. Incluye
+   .card (transparencia.js) y .cnt-body (contenido.js) además de
+   .neu-panel/.admin-panel -- las cuatro superficies del rediseño. */
+.neu-panel input, .neu-panel select, .neu-panel textarea,
+.admin-panel input, .admin-panel select, .admin-panel textarea,
+.card input, .card select, .card textarea,
+.cnt-body input, .cnt-body select, .cnt-body textarea {
+  background: var(--bg-secondary);
+  border: none;
+  box-shadow: inset 3px 3px 8px var(--neu-dark), inset -3px -3px 8px var(--neu-light);
+}
+.neu-panel input:focus, .neu-panel select:focus, .neu-panel textarea:focus,
+.admin-panel input:focus, .admin-panel select:focus, .admin-panel textarea:focus,
+.card input:focus, .card select:focus, .card textarea:focus,
+.cnt-body input:focus, .cnt-body select:focus, .cnt-body textarea:focus {
+  box-shadow: inset 3px 3px 8px var(--neu-dark), inset -3px -3px 8px var(--neu-light), 0 0 0 3px hsla(205, 85%, 55%, 0.25);
+}
+.neu-panel input:user-invalid, .neu-panel select:user-invalid,
+.admin-panel input:user-invalid, .admin-panel select:user-invalid,
+.card input:user-invalid, .card select:user-invalid,
+.cnt-body input:user-invalid, .cnt-body select:user-invalid {
+  box-shadow: inset 3px 3px 8px var(--neu-dark), inset -3px -3px 8px var(--neu-light), 0 0 0 3px hsla(355, 78%, 56%, 0.2);
 }

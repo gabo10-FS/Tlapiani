@@ -8,9 +8,9 @@
      inventa esas operaciones.
    ============================================================ */
 
-import { api, auth } from '../api.js';
-import { esc, skeleton } from './ui.js';
-import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js';
+import { api, auth } from '../api.js?v=redesign2';
+import { esc, skeleton, showError } from './ui.js?v=redesign1';
+import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js?v=redesign3';
 
 const ROLES = ['Administrador', 'Donante', 'Transportista'];
 
@@ -22,7 +22,7 @@ function badgeRol(rol) {
 export async function mountUsuarios(root) {
   const me = auth.getUser();
   if (!me || me.rol !== 'Administrador') {
-    root.innerHTML = `<section class="card empty">
+    root.innerHTML = `<section class="neu-panel admin-panel empty">
       <h3>Acceso restringido</h3>
       <p class="text-muted">La gestión de usuarios solo está disponible para la cuenta <strong>Administrador</strong>
       (el backend real aplica esta misma regla en <span class="hash">GET/POST /api/v1/usuarios*</span>).</p>
@@ -32,7 +32,7 @@ export async function mountUsuarios(root) {
 
   root.innerHTML = `
     <div class="grid-2">
-      <section class="card" id="usr-form-card">
+      <section class="neu-panel admin-panel" id="usr-form-card">
         <div class="section-head"><h3>Registrar usuario</h3></div>
         <form id="usr-form" novalidate>
           <div class="form-grid">
@@ -56,22 +56,22 @@ export async function mountUsuarios(root) {
               </select>
             </label>
           </div>
-          <div class="dialog__footer" style="margin-top:18px">
-            <button type="reset" class="btn btn--ghost">Limpiar</button>
-            <button type="submit" class="btn btn--emerald">Registrar usuario</button>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+            <button type="reset" class="neu-btn">Limpiar</button>
+            <button type="submit" class="neu-btn neu-btn--emerald">Registrar usuario</button>
           </div>
         </form>
       </section>
 
-      <section class="card" id="usr-stats-card">
+      <section class="neu-panel admin-panel" id="usr-stats-card">
         <div class="section-head"><h3>Resumen</h3></div>
         <div class="stat-grid" id="usr-stats">${skeleton(2)}</div>
       </section>
     </div>
 
-    <section class="card" id="usr-table-card" style="margin-top:18px">
+    <section class="neu-panel admin-panel" id="usr-table-card" style="margin-top:18px">
       <div class="toolbar">
-        <input class="search" id="usr-search" type="search" placeholder="🔍 Buscar por nombre o correo…" />
+        <input class="search" id="usr-search" type="search" placeholder="Buscar por nombre o correo…" />
         <span class="badge badge--blue" id="usr-count">0 usuarios</span>
       </div>
       <div class="table-wrap">
@@ -118,7 +118,7 @@ export async function mountUsuarios(root) {
       renderStats(data);
       renderTable(data);
     } catch (err) {
-      alert(`No se pudo registrar el usuario: ${err.message}`);
+      showError(err.message, 'No se pudo registrar el usuario');
     } finally {
       btn.disabled = false; btn.textContent = 'Registrar usuario';
     }
@@ -135,9 +135,9 @@ export async function mountUsuarios(root) {
     const admins = rows.filter(u => u.rol === 'Administrador').length;
     const activos = rows.filter(u => u.activo).length;
     document.getElementById('usr-stats').innerHTML = `
-      <div class="stat card"><div class="stat__label">Usuarios totales</div><div class="stat__value">${rows.length}</div></div>
-      <div class="stat card"><div class="stat__label">Activos</div><div class="stat__value">${activos}</div></div>
-      <div class="stat card"><div class="stat__label">Administradores</div><div class="stat__value">${admins}</div></div>`;
+      <div class="stat neu-metric"><div class="stat__label">Usuarios totales</div><div class="stat__value">${rows.length}</div></div>
+      <div class="stat neu-metric"><div class="stat__label">Activos</div><div class="stat__value">${activos}</div></div>
+      <div class="stat neu-metric"><div class="stat__label">Administradores</div><div class="stat__value">${admins}</div></div>`;
   }
 
   function renderTable(rows) {
@@ -155,5 +155,8 @@ export async function mountUsuarios(root) {
         <td><span class="badge badge--${u.activo ? 'emerald' : 'crimson'}">${u.activo ? 'Sí' : 'No'}</span></td>
         <td>${esc(String(u.created_at).slice(0, 10))}</td>
       </tr>`).join('');
+    // Igual que en inventario.js: son <tr> nuevos, hay que volver a
+    // registrar el reveal-on-scroll sobre ellos en cada render.
+    revealOnScroll('#usr-tbody tr');
   }
 }

@@ -1,15 +1,18 @@
 /* ============================================================
    Vista: Despacho de Envíos y Generación de QR
    - Selección de lote y transportista -> confirma despacho.
-   - El backend (demo: Web Crypto) genera un hash SHA-256 único.
+   - El backend genera un hash SHA-256 único al despachar (POST .../despachar
+     devuelve el hash ya calculado; ver integridad_service.py).
    - El hash se codifica en un QR dibujado en <canvas> nativo.
    - El QR contiene un JSON estructurado (id + hash + destino).
    - Botón "Imprimir etiqueta" abre una vista optimizada (@media print).
    ============================================================ */
 
-import { api } from '../api.js';
-import { esc, estadoBadge, openDialog, closeDialog } from './ui.js';
-import { runViewAnimations, enterPanel, enterStagger } from '../animations.js';
+import { api } from '../api.js?v=redesign2';
+import { esc, estadoBadge, openDialog, closeDialog, showError } from './ui.js?v=redesign1';
+import { runViewAnimations, enterPanel, gsap } from '../animations.js?v=redesign3';
+
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* Carga qrcode-generator (UMD global `qrcode`) de forma perezosa. */
 let qrPromise = null;
@@ -49,7 +52,7 @@ async function drawQR(canvas, text) {
 export async function mountDespacho(root) {
   root.innerHTML = `
     <div class="grid-2">
-      <section class="card" id="dsp-form-card">
+      <section class="neu-panel admin-panel" id="dsp-form-card">
         <div class="section-head"><h3>Asignar ruta y despachar</h3></div>
         <form id="dsp-form" novalidate>
           <label class="field" style="margin-bottom:14px">
@@ -64,11 +67,11 @@ export async function mountDespacho(root) {
             <span>Vehículo / placa</span>
             <input name="vehiculo" required minlength="3" placeholder="MX-0000" />
           </label>
-          <button type="submit" class="btn btn--blue btn--block">Confirmar despacho &amp; generar QR</button>
+          <button type="submit" class="neu-btn neu-btn--block" style="color:var(--accent-blue)">Confirmar despacho &amp; generar QR</button>
         </form>
       </section>
 
-      <section class="card" id="dsp-qr-card">
+      <section class="neu-panel admin-panel" id="dsp-qr-card">
         <div class="section-head"><h3>Etiqueta de trazabilidad</h3></div>
         <div id="qr-slot" class="empty">
           Confirma un despacho para generar el código QR y su etiqueta imprimible.
@@ -77,11 +80,18 @@ export async function mountDespacho(root) {
     </div>`;
 
   const lotes = await api.lotes();
-  const disponibles = lotes.filter(l => l.estado === 'Registrado' || l.estado === 'En Ruta' || l.estado === 'Creado');
-  document.getElementById('dsp-lote').innerHTML =
-    `<option value="">Selecciona un lote…</option>` +
-    (disponibles.length ? disponibles : lotes).map(l =>
-      `<option value="${esc(l.id)}">${esc(l.id)} · ${esc(l.tipo)} → ${esc(l.comunidad)}</option>`).join('');
+  // Solo "Creado" es un despacho legal (backend/README.md #7): cualquier
+  // otro estado responde 409. Antes este filtro también incluía "En Ruta"
+  // y un "Registrado" que ni siquiera es un estado real del backend, así
+  // que dejaba elegir lotes que el backend iba a rechazar de todos modos
+  // -- y si "disponibles" quedaba vacío, el fallback mostraba la lista
+  // COMPLETA (incluyendo entregados y con alerta de manipulación), lo
+  // cual era peor, no un respaldo razonable.
+  const disponibles = lotes.filter(l => l.estado === 'Creado');
+  document.getElementById('dsp-lote').innerHTML = disponibles.length
+    ? `<option value="">Selecciona un lote…</option>` + disponibles.map(l =>
+        `<option value="${esc(l.id)}">${esc(l.id)} · ${esc(l.tipo)} → ${esc(l.comunidad)}</option>`).join('')
+    : `<option value="">No hay lotes en estado "Creado" listos para despachar</option>`;
 
   // Catálogo de transportistas: GET /api/v1/usuarios solo es accesible como
   // Administrador (ver backend/README.md). Si quien despacha es un Transportista,
@@ -140,29 +150,28 @@ export async function mountDespacho(root) {
       });
       renderQR({ lote, res, payload, transportista: transportistaLabel, vehiculo });
     } catch (err) {
-      alert(`No se pudo despachar el lote: ${err.message}`);
+      showError(err.message, 'No se pudo despachar el lote');
     } finally {
       btn.disabled = false; btn.textContent = 'Confirmar despacho & generar QR';
     }
   });
 
-  function renderQR({ lote, res, payload, transportista, vehiculo }) {
+  async function renderQR({ lote, res, payload, transportista, vehiculo }) {
     const slot = document.getElementById('qr-slot');
     slot.classList.remove('empty');
     slot.innerHTML = `
       <div class="qr-box" id="qr-box">
         <canvas id="qr-canvas" width="220" height="220" role="img" aria-label="Código QR del lote ${esc(lote.id)}"></canvas>
-        <div style="text-align:center">
+        <div class="qr-meta" style="text-align:center">
           <div><strong>${esc(lote.id)}</strong></div>
           <div class="text-muted text-xs">${esc(lote.tipo || '')} · <span class="badge badge--${estadoBadge('En Ruta')}">En Ruta</span></div>
         </div>
         <p class="hash" style="text-align:center">${esc(res.hash)}</p>
-        <div class="dialog__footer" style="justify-content:center">
-          <button class="btn btn--ghost" id="qr-json">Ver JSON</button>
-          <button class="btn btn--emerald" id="qr-print">Imprimir etiqueta</button>
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:16px">
+          <button class="neu-btn" id="qr-json">Ver JSON</button>
+          <button class="neu-btn neu-btn--emerald" id="qr-print">Imprimir etiqueta</button>
         </div>
       </div>`;
-    drawQR(document.getElementById('qr-canvas'), payload);
 
     document.getElementById('qr-json').addEventListener('click', () => {
       openDialog(`<h2>Contenido del QR</h2><p class="hash" style="white-space:pre-wrap">${esc(payload)}</p>
@@ -173,15 +182,25 @@ export async function mountDespacho(root) {
     document.getElementById('qr-print').addEventListener('click', () =>
       printLabel({ lote, res, payload, transportista, vehiculo }));
 
-    // Micro-animación de aparición
-    enterStagger('#qr-box > *', { stagger: 0.06 });
+    // Revelación en orden narrativo (prueba -> info -> sello -> acciones),
+    // no una lista plana con stagger uniforme. drawQR() es async (carga
+    // qrcode-generator desde CDN la primera vez): se espera a que el QR
+    // ya esté pintado antes de animar el canvas, para no mostrarlo en
+    // blanco entrando y luego "pop" cuando el script termina de cargar.
+    await drawQR(document.getElementById('qr-canvas'), payload);
+    if (reduced) { gsap.set('#qr-box > *', { autoAlpha: 1 }); return; }
+    gsap.timeline({ defaults: { ease: 'power2.out' } })
+      .from('#qr-canvas', { autoAlpha: 0, scale: 0.94, duration: 0.28 })
+      .from('.qr-meta', { y: 10, autoAlpha: 0, duration: 0.22 }, '-=0.12')
+      .from('#qr-box .hash', { y: 10, autoAlpha: 0, duration: 0.22 }, '-=0.12')
+      .from('#qr-box .dialog__footer', { y: 10, autoAlpha: 0, duration: 0.22 }, '-=0.12');
   }
 }
 
 /* Imprime una etiqueta limpia usando @media print (nueva ventana). */
 function printLabel({ lote, res, transportista, vehiculo }) {
   const w = window.open('', '_blank', 'width=460,height=640');
-  if (!w) { alert('Habilita las ventanas emergentes para imprimir la etiqueta.'); return; }
+  if (!w) { showError('Habilita las ventanas emergentes para imprimir la etiqueta.'); return; }
   
   // Replicamos el payload de la app móvil para que la etiqueta física contenga la metadata completa offline.
   const payloadData = {

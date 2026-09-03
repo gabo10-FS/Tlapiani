@@ -6,11 +6,9 @@
      Creado → En Ruta → Recibido (con estado criptográfico).
    ============================================================ */
 
-import { api } from '../api.js';
-import { esc, estadoBadge, skeleton } from './ui.js';
-import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js';
-
-const EJEMPLOS = ['TLAP-2026-9981', 'TLAP-2026-9974', 'TLAP-2026-9968'];
+import { api } from '../api.js?v=redesign2';
+import { esc, estadoBadge, skeleton } from './ui.js?v=redesign1';
+import { runViewAnimations, enterPanel, enterStagger, revealOnScroll } from '../animations.js?v=redesign3';
 
 export async function mountTransparencia(root, preId) {
   root.innerHTML = `
@@ -22,11 +20,9 @@ export async function mountTransparencia(root, preId) {
         <form id="tp-form" class="search-hero" novalidate>
           <input name="id" id="tp-input" placeholder="TLAP-2026-XXXX" required
                  pattern="TLAP-\\d{4}-\\d{3,5}" autocomplete="off" value="${esc(preId || '')}" />
-          <button class="btn btn--emerald" type="submit">Rastrear</button>
+          <button class="neu-btn neu-btn--emerald" type="submit">Rastrear</button>
         </form>
-        <p class="text-muted text-xs" style="margin-top:14px">
-          Ejemplos: ${EJEMPLOS.map(id => `<a href="#/transparencia/${id}" class="hash">${id}</a>`).join(' · ')}
-        </p>
+        <p id="tp-ejemplos" class="text-muted text-xs" style="margin-top:14px"></p>
       </div>
     </section>
     <section id="tp-result" style="margin-top:18px"></section>`;
@@ -40,6 +36,23 @@ export async function mountTransparencia(root, preId) {
     const id = document.getElementById('tp-input').value.trim().toUpperCase();
     location.hash = `#/transparencia/${id}`;
   });
+
+  // Los IDs de ejemplo antes venían hardcodeados y no existían en el
+  // backend real (siempre daban "lote no encontrado"). Ahora se toman de
+  // los lotes reales que esta sesión ya creó/despachó; si no hay ninguno,
+  // simplemente no se muestra la línea de ejemplos.
+  cargarEjemplos();
+  async function cargarEjemplos() {
+    const p = document.getElementById('tp-ejemplos');
+    if (!p) return;
+    try {
+      const lotes = await api.lotes();
+      const ids = lotes.slice(0, 3).map(l => l.id);
+      if (ids.length) {
+        p.innerHTML = `Ejemplos: ${ids.map(id => `<a href="#/transparencia/${id}" class="hash">${esc(id)}</a>`).join(' · ')}`;
+      }
+    } catch { /* sin ejemplos si falla, no es crítico */ }
+  }
 
   if (preId) await buscar(preId.toUpperCase());
 
